@@ -1,0 +1,59 @@
+name: Sync Firmware Assets
+
+'on':
+  repository_dispatch:
+    types:
+      - firmware-updated
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firmware-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download firmware artifacts
+        env:
+          FIRMWARE_URL: ${{ github.event.client_payload.firmware_url }}
+          BOOTLOADER_URL: ${{ github.event.client_payload.bootloader_url }}
+          PARTITION_TABLE_URL: ${{ github.event.client_payload.partition_table_url }}
+          MANIFEST_URL: ${{ github.event.client_payload.manifest_url }}
+          VERSION_URL: ${{ github.event.client_payload.version_url }}
+        run: |
+          set -euo pipefail
+          test -n "$FIRMWARE_URL"
+          test -n "$BOOTLOADER_URL"
+          test -n "$PARTITION_TABLE_URL"
+          test -n "$MANIFEST_URL"
+          test -n "$VERSION_URL"
+          mkdir -p firmware
+          curl -fsSL "$FIRMWARE_URL" -o firmware/firmware.bin
+          curl -fsSL "$BOOTLOADER_URL" -o firmware/bootloader.bin
+          curl -fsSL "$PARTITION_TABLE_URL" -o firmware/partition-table.bin
+          curl -fsSL "$MANIFEST_URL" -o firmware/manifest.json
+          curl -fsSL "$VERSION_URL" -o firmware/version.json
+          test -s firmware/firmware.bin
+          test -s firmware/bootloader.bin
+          test -s firmware/partition-table.bin
+          test -s firmware/manifest.json
+          test -s firmware/version.json
+
+      - name: Commit updated firmware
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- firmware; then
+            echo "No firmware changes detected."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add firmware
+          git commit -m "Sync firmware assets"
+          git push

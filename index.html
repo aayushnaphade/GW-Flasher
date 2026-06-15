@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Production-ready ESP32-S3 firmware flasher with GitHub Pages deployment and live firmware metadata."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>GW Flasher</title>
+    <meta property="og:title" content="GW Flasher" />
+    <meta
+      property="og:description"
+      content="A clean, production-ready firmware flasher website for ESP32-S3 devices."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="static/social.png" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script type="module" src="https://unpkg.com/esp-web-tools@latest/dist/web/install-button.js?module"></script>
+    <script type="module" src="js/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 12h10" />
+              <path d="M12 7v10" />
+              <path d="M4.5 6.5 6.7 8.7" />
+              <path d="M17.3 15.3 19.5 17.5" />
+              <path d="M4.5 17.5 6.7 15.3" />
+              <path d="M17.3 8.7 19.5 6.5" />
+            </svg>
+          </div>
+          <div>
+            <p class="eyebrow">GitHub Pages Flasher</p>
+            <h1>GW Flasher</h1>
+            <p>
+              A production-ready firmware portal for ESP32-S3 devices. Flash from the browser, verify the current build, and keep the public site synced with the private ESP-IDF pipeline.
+            </p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="pill icon-button" type="button" data-theme-toggle>Dark mode</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <article class="hero-card">
+          <div class="helper-row">
+            <span class="badge">ESP32-S3 ready</span>
+            <span class="badge">GitHub Pages</span>
+            <span class="badge">Secure Web Serial</span>
+          </div>
+          <h2 class="section-title" data-version-headline>Firmware 3.0.0</h2>
+          <p class="install-copy">
+            Use the install button to launch the latest ESP Web Tools component and flash <strong>firmware/manifest.json</strong> from the public repository.
+          </p>
+          <div class="grid grid-two">
+            <div class="card metric-card">
+              <dl>
+                <dt>Firmware version</dt>
+                <dd data-version-value>3.0.0</dd>
+              </dl>
+            </div>
+            <div class="card metric-card">
+              <dl>
+                <dt>Release date</dt>
+                <dd data-build-date-value>2026-06-15</dd>
+              </dl>
+            </div>
+          </div>
+        </article>
+
+        <aside class="hero-side">
+          <div class="card version-card">
+            <p class="card-kicker">Version card</p>
+            <p class="small-copy">Loading firmware metadata…</p>
+            <div class="version-grid">
+              <dl class="version-field">
+                <dt>Firmware Version</dt>
+                <dd data-version-value>3.0.0</dd>
+              </dl>
+              <dl class="version-field">
+                <dt>Build Date</dt>
+                <dd data-build-date-value>2026-06-15</dd>
+              </dl>
+              <dl class="version-field">
+                <dt>Target Device</dt>
+                <dd data-target-value>ESP32-S3</dd>
+              </dl>
+            </div>
+            <p class="status" data-version-status>Fetching firmware/version.json…</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="grid grid-two">
+        <article class="card install-layout">
+          <div class="install-visual">
+            <div>
+              <p class="card-kicker">Install firmware</p>
+              <h2 class="section-title">Modern browser flashing</h2>
+              <p class="install-copy">
+                The install button uses ESP Web Tools and loads <strong>firmware/manifest.json</strong> directly from GitHub Pages.
+              </p>
+            </div>
+            <div class="install-panel">
+              <div class="install-preview">
+                <div class="install-preview__label">
+                  <strong>Latest public build</strong>
+                  <span>firmware.bin, bootloader.bin, partition-table.bin</span>
+                </div>
+                <span class="badge">Ready to flash</span>
+              </div>
+              <div class="install-button-wrap">
+                <button class="install-button-trigger" type="button" data-install-button>
+                  Install Firmware
+                </button>
+                <p class="install-note">
+                  Works in Chromium-based browsers over HTTPS with Web Serial enabled.
+                </p>
+                <esp-web-install-button
+                  class="esp-install-host"
+                  manifest="firmware/manifest.json"
+                >
+                  <span slot="unsupported">Web Serial is required for firmware installation.</span>
+                </esp-web-install-button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <p class="card-kicker">Connection instructions</p>
+            <ol class="steps">
+              <li><strong>Step 1:</strong> Connect ESP32-S3 via USB</li>
+              <li><strong>Step 2:</strong> Click Connect</li>
+              <li><strong>Step 3:</strong> Select COM Port</li>
+              <li><strong>Step 4:</strong> Flash Firmware</li>
+              <li><strong>Step 5:</strong> Wait for reboot</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="card monitor-shell">
+          <div class="monitor-toolbar">
+            <div class="monitor-toolbar__left">
+              <span class="monitor-dot" aria-hidden="true"></span>
+              <div>
+                <p class="card-kicker">Serial monitor</p>
+                <h2 class="section-title">Live console</h2>
+              </div>
+            </div>
+            <div class="monitor-controls">
+              <button class="secondary-button" type="button" data-monitor-button>Connect serial monitor</button>
+              <button class="secondary-button" type="button" data-monitor-disconnect hidden>Disconnect</button>
+              <button class="link-button" type="button" data-monitor-clear>Clear</button>
+            </div>
+          </div>
+          <p class="monitor-status" data-serial-status>Ready to connect to an ESP32-S3 device.</p>
+          <pre class="monitor-console" data-serial-log aria-live="polite"></pre>
+        </article>
+      </section>
+
+      <footer class="footer">
+        Firmware hosted by GitHub Pages.
+      </footer>
+    </main>
+  </body>
+</html>
