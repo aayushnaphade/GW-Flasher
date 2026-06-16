@@ -41,6 +41,11 @@ const el = {
   installNote: $("[data-install-note]"),
   installHost: $("esp-web-install-button"),
 
+  flashProgress: $("[data-flash-progress]"),
+  progressLabel: $("[data-progress-label]"),
+  progressPct: $("[data-progress-pct]"),
+  progressBar: $("[data-progress-bar]"),
+
   versionStatus: $("[data-version-status]"),
   versionValues: $$("[data-version-value]"),
   buildDateValues: $$("[data-build-date-value]"),
@@ -92,6 +97,8 @@ const state = {
   flashing: false,
   currentVersion: null,
   updatePending: false,
+  resumeMonitorAfterFlash: false,
+  progressTimer: null,
 };
 
 /* ============================================================
@@ -573,18 +580,32 @@ async function wireInstall() {
 
   await customElements.whenDefined("esp-web-install-button");
 
-  el.installButton.addEventListener("click", () => {
-    // The install button uses a <slot> click handler in its shadow root.
-    const hostBtn = el.installHost.shadowRoot?.querySelector("slot, button");
-    setFlow("detect", "active");
-    setFlowBadge("Flashing", "busy");
-    setStatus({ state: "busy", primary: "Launching installer…" });
-    appendLine("Opening firmware installer…", "system");
-    if (hostBtn) hostBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    else el.installHost.click();
-  });
-
+  el.installButton.addEventListener("click", startFlash);
   observeFlashDialog();
+}
+
+async function startFlash() {
+  if (state.flashing) return;
+
+  // A serial port can only be held by one consumer. If our monitor has the
+  // port open, esp-web-tools cannot open it ("serial is busy"). Release it
+  // first, and remember to reconnect once flashing finishes.
+  if (state.live || state.port) {
+    appendLine("Releasing serial monitor so the flasher can use the port…", "system");
+    state.resumeMonitorAfterFlash = state.live;
+    await releasePort();
+    // Give the OS a moment to fully free the port handle.
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  setFlow("detect", "active");
+  setFlowBadge("Flashing", "busy");
+  setStatus({ state: "busy", primary: "Launching installer…" });
+  appendLine("Opening firmware installer…", "system");
+
+  const hostBtn = el.installHost.shadowRoot?.querySelector("slot, button");
+  if (hostBtn) hostBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  else el.installHost.click();
 }
 
 /* esp-web-tools opens an <ewt-install-dialog> on the body while flashing and
@@ -597,7 +618,7 @@ function observeFlashDialog() {
   const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
       m.addedNodes.forEach((node) => {
-        if (isDialog(node)) onFlashStart();
+        if (isDialog(node)) onFlashStart(node);
       });
       m.removedNodes.forEach((node) => {
         if (isDialog(node)) onFlashEnd();
@@ -607,22 +628,130 @@ function observeFlashDialog() {
   observer.observe(document.body, { childList: true });
 }
 
-function onFlashStart() {
+/* ---------- Progress bar ---------- */
+function showProgress(label, mode = "indeterminate") {
+  if (!el.flashProgress) return;
+  el.flashProgress.hidden = false;
+  el.flashProgress.dataset.mode = mode;
+  delete el.flashProgress.dataset.tone;
+  if (el.progressLabel) el.progressLabel.textContent = label;
+  if (el.progressPct) el.progressPct.textContent = mode === "determinate" ? "0%" : "";
+  if (el.progressBar && mode === "determinate") el.progressBar.style.width = "0%";
+}
+function setProgress(pct, label) {
+  if (!el.flashProgress) return;
+  el.flashProgress.dataset.mode = "determinate";
+  if (el.progressBar) el.progressBar.style.width = `${pct}%`;
+  if (el.progressPct) el.progressPct.textContent = `${pct}%`;
+  if (label && el.progressLabel) el.progressLabel.textContent = label;
+}
+function finishProgress(tone, label) {
+  if (!el.flashProgress) return;
+  el.flashProgress.dataset.mode = "determinate";
+  el.flashProgress.dataset.tone = tone;
+  if (el.progressBar) el.progressBar.style.width = "100%";
+  if (el.progressPct) el.progressPct.textContent = tone === "error" ? "—" : "100%";
+  if (label && el.progressLabel) el.progressLabel.textContent = label;
+  setTimeout(() => {
+    if (el.flashProgress) el.flashProgress.hidden = true;
+  }, 2600);
+}
+
+/* The bundled dialog renders progress text/percent in its shadow DOM. We poll
+   it to mirror a real percentage when available; otherwise we keep the bar in
+   indeterminate mode so the user still sees activity. */
+function startProgressPolling(dialog) {
+  stopProgressPolling();
+  let lastPhase = "";
+  state.progressTimer = setInterval(() => {
+    const text = readDialogText(dialog);
+    if (!text) return;
+
+    const phase = detectPhase(text);
+    if (phase && phase !== lastPhase) {
+      lastPhase = phase;
+      appendLine(`Flasher: ${phase}`, "system");
+      if (el.consoleMeta) el.consoleMeta.textContent = phase.toLowerCase();
+    }
+
+    const pctMatch = text.match(/(\d{1,3})\s*%/);
+    if (pctMatch) {
+      const pct = Math.min(100, parseInt(pctMatch[1], 10));
+      setProgress(pct, phase || "Writing firmware…");
+      setStatus({ state: "busy", primary: `${phase || "Writing"}… ${pct}%` });
+    } else if (phase) {
+      // Known phase but no number yet (erasing, preparing) — keep indeterminate.
+      if (el.flashProgress?.dataset.mode !== "determinate") {
+        if (el.progressLabel) el.progressLabel.textContent = phase;
+      }
+    }
+  }, 350);
+}
+function stopProgressPolling() {
+  if (state.progressTimer) {
+    clearInterval(state.progressTimer);
+    state.progressTimer = null;
+  }
+}
+function readDialogText(dialog) {
+  try {
+    // Walk shadow roots to collect visible text.
+    const root = dialog.shadowRoot || dialog;
+    return (root.textContent || "").replace(/\s+/g, " ").trim();
+  } catch {
+    return "";
+  }
+}
+function detectPhase(text) {
+  const t = text.toLowerCase();
+  if (t.includes("erasing")) return "Erasing";
+  if (t.includes("writing") || t.includes("flashing")) return "Writing firmware";
+  if (t.includes("preparing")) return "Preparing";
+  if (t.includes("installation complete") || t.includes("finished") || t.includes("success")) return "Complete";
+  if (t.includes("error") || t.includes("failed")) return "Error";
+  return "";
+}
+
+function onFlashStart(dialog) {
   state.flashing = true;
   setFlow("flash", "active");
   setFlowBadge("Flashing", "busy");
   setStatus({ state: "busy", primary: "Flashing firmware…" });
   if (el.consoleMeta) el.consoleMeta.textContent = "flashing";
+  showProgress("Preparing flash…", "indeterminate");
+  startProgressPolling(dialog);
 }
 
-function onFlashEnd() {
+async function onFlashEnd() {
+  stopProgressPolling();
   state.flashing = false;
-  setFlowBadge("Ready");
   if (el.consoleMeta) el.consoleMeta.textContent = "";
-  // If a serial monitor is live we treat the device as connected; otherwise idle.
-  if (!state.live) setStatus({ state: "idle", primary: "No device connected" });
-  appendLine("Installer closed.", "system");
-  // A new build may have been deployed while the user was flashing.
+
+  // Determine success/failure from the last status text if possible.
+  const lastText = el.progressLabel?.textContent || "";
+  if (/error/i.test(lastText)) {
+    setFlowBadge("Error", "error");
+    finishProgress("error", "Flash failed — see installer");
+    setStatus({ state: "error", primary: "Flash failed" });
+    toast("Flashing failed", "error");
+  } else {
+    setFlow("verify", "done");
+    setFlowBadge("Flashed", "success");
+    finishProgress("success", "Flash complete");
+    appendLine("Firmware flashed. Device rebooting.", "system");
+    toast("Firmware flashed successfully", "success");
+  }
+
+  // Reconnect the serial monitor if we closed it to free the port.
+  if (state.resumeMonitorAfterFlash) {
+    state.resumeMonitorAfterFlash = false;
+    appendLine("Reconnecting serial monitor…", "system");
+    // The device is rebooting; wait briefly before grabbing the port.
+    setTimeout(() => connectMonitor(), 1200);
+  } else if (!state.live) {
+    setStatus({ state: "idle", primary: "No device connected" });
+  }
+
   flushPendingUpdate();
 }
 

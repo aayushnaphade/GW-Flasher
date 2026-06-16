@@ -141,6 +141,17 @@
               Chromium-based browser over HTTPS with Web Serial required.
             </p>
 
+            <!-- Flash progress -->
+            <div class="progress" data-flash-progress hidden>
+              <div class="progress__head">
+                <span class="progress__label" data-progress-label>Preparing…</span>
+                <span class="progress__pct mono" data-progress-pct></span>
+              </div>
+              <div class="progress__track">
+                <div class="progress__bar" data-progress-bar></div>
+              </div>
+            </div>
+
             <esp-web-install-button
               class="esp-host"
               manifest="firmware/manifest.json"

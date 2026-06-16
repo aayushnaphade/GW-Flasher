@@ -384,6 +384,56 @@ kbd {
   color: var(--muted);
 }
 
+/* ---------- Flash progress ---------- */
+.progress {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.progress__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.progress__label {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.progress__pct {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.progress__track {
+  height: 8px;
+  border-radius: 6px;
+  background: var(--elevated);
+  overflow: hidden;
+  position: relative;
+}
+.progress__bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent-press), var(--accent));
+  transition: width 0.25s ease;
+}
+/* Indeterminate mode when no real percentage is available */
+.progress[data-mode="indeterminate"] .progress__bar {
+  width: 35% !important;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+.progress[data-tone="error"] .progress__bar { background: var(--error); }
+.progress[data-tone="success"] .progress__bar { background: var(--success); }
+
 .badge {
   font-size: 11px;
   font-weight: 600;
