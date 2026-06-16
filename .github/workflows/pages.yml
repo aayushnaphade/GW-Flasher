@@ -29,11 +29,43 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Prepare site files
+        env:
+          FLASHER_USERNAME: ${{ vars.FLASHER_USERNAME }}
+          FLASHER_PASSWORD: ${{ vars.FLASHER_PASSWORD }}
+          FLASHER_TOTP_SECRET: ${{ vars.FLASHER_TOTP_SECRET }}
         run: |
           rm -rf site
           mkdir -p site
           cp index.html auth.html site/
           cp -R css js firmware static site/
+
+          # Inject login credentials + TOTP secret from repo variables into
+          # auth-config.js. NOTE: GitHub Pages is static — these values ship to
+          # the browser and are visible in page source. This is access gating,
+          # not real security/2FA.
+          USER_VALUE="${FLASHER_USERNAME:-admin}"
+          PASS_VALUE="${FLASHER_PASSWORD:-changeme123}"
+          TOTP_VALUE="${FLASHER_TOTP_SECRET:-}"
+          # JSON-escape via jq to handle quotes/special chars safely.
+          USER_JSON="$(jq -Rn --arg v "$USER_VALUE" '$v')"
+          PASS_JSON="$(jq -Rn --arg v "$PASS_VALUE" '$v')"
+          TOTP_JSON="$(jq -Rn --arg v "$TOTP_VALUE" '$v')"
+          cat > site/js/auth-config.js <<EOF
+          /* Generated at deploy from repo variables. Do not edit. */
+          window.GW_AUTH = {
+            username: ${USER_JSON},
+            password: ${PASS_JSON},
+            totpSecret: ${TOTP_JSON}
+          };
+          EOF
+          echo "Injected auth-config.js (2FA enabled: $([ -n "${FLASHER_TOTP_SECRET:-}" ] && echo yes || echo no))"
+
+          # Build id used by the client auto-update poller (js/app.js).
+          BUILD_ID="$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}+${GITHUB_SHA::7}"
+          printf '{\n  "build": "%s",\n  "commit": "%s",\n  "deployed_at": "%s"\n}\n' \
+            "$BUILD_ID" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > site/site-version.json
+          echo "Generated site-version.json with build $BUILD_ID"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

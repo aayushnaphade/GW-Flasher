@@ -58,6 +58,12 @@
   padding: 0;
 }
 
+/* The hidden attribute must always win over component display rules
+   (e.g. .overlay uses display:grid, .env-banner uses display:flex). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;
@@ -898,6 +904,64 @@ kbd {
 }
 .toast[data-tone="error"] { border-left-color: var(--error); }
 .toast[data-tone="success"] { border-left-color: var(--success); }
+
+/* ============================================================
+   Update-available banner
+   ============================================================ */
+.btn--sm { height: 30px; padding: 0 12px; font-size: 13px; }
+
+.update-banner {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 380px;
+  padding: 12px 14px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px color-mix(in srgb, #000 45%, transparent);
+  z-index: 70;
+  transform: translateY(12px);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.update-banner[data-show="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+.update-banner__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+  flex: none;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.update-banner__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+.update-banner__text strong { font-size: 13px; font-weight: 600; }
+.update-banner__sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .update-banner { left: 12px; right: 12px; max-width: none; bottom: 12px; }
+}
 
 /* ============================================================
    Responsive

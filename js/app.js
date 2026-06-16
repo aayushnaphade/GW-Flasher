@@ -69,6 +69,11 @@ const el = {
   shortcutsClose: $("[data-shortcuts-close]"),
 
   toast: $("[data-toast]"),
+
+  updateBanner: $("[data-update-banner]"),
+  updateSub: $("[data-update-sub]"),
+  updateReload: $("[data-update-reload]"),
+  updateDismiss: $("[data-update-dismiss]"),
 };
 
 /* ---------- State ---------- */
@@ -84,6 +89,9 @@ const state = {
   hasLogs: false,
   copyTargets: {},
   lineBuffer: "",
+  flashing: false,
+  currentVersion: null,
+  updatePending: false,
 };
 
 /* ============================================================
@@ -564,66 +572,58 @@ async function wireInstall() {
   }
 
   await customElements.whenDefined("esp-web-install-button");
-  const hostBtn = el.installHost.shadowRoot?.querySelector("button");
 
   el.installButton.addEventListener("click", () => {
+    // The install button uses a <slot> click handler in its shadow root.
+    const hostBtn = el.installHost.shadowRoot?.querySelector("slot, button");
     setFlow("detect", "active");
     setFlowBadge("Flashing", "busy");
     setStatus({ state: "busy", primary: "Launching installer…" });
     appendLine("Opening firmware installer…", "system");
-    if (hostBtn) hostBtn.click();
+    if (hostBtn) hostBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     else el.installHost.click();
   });
 
-  // Track ESP Web Tools lifecycle events
-  el.installHost.addEventListener("state-changed", (e) => {
-    const detail = e.detail || {};
-    handleEspState(detail);
-  });
+  observeFlashDialog();
 }
 
-function handleEspState(detail) {
-  const { state: phase, message, details } = detail;
-  switch (phase) {
-    case "INITIALIZING":
-    case "MANIFEST":
-      setFlow("detect", "active");
-      setStatus({ state: "busy", primary: "Detecting device…" });
-      break;
-    case "PREPARING":
-      setFlow("flash", "active");
-      setStatus({ state: "busy", primary: "Preparing flash…" });
-      break;
-    case "ERASING":
-      setFlow("flash", "active");
-      setStatus({ state: "busy", primary: "Erasing flash…" });
-      appendLine("Erasing flash…", "system");
-      break;
-    case "WRITING": {
-      setFlow("flash", "active");
-      const pct = details?.percentage != null ? ` ${details.percentage}%` : "";
-      setStatus({ state: "busy", primary: `Writing firmware…${pct}` });
-      if (el.consoleMeta) el.consoleMeta.textContent = `flashing${pct}`;
-      break;
+/* esp-web-tools opens an <ewt-install-dialog> on the body while flashing and
+   removes it when done. Watching that node is version-proof and lets us drive
+   flow state without depending on internal event names. */
+function observeFlashDialog() {
+  const isDialog = (node) =>
+    node?.nodeType === 1 && node.tagName?.toLowerCase() === "ewt-install-dialog";
+
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      m.addedNodes.forEach((node) => {
+        if (isDialog(node)) onFlashStart();
+      });
+      m.removedNodes.forEach((node) => {
+        if (isDialog(node)) onFlashEnd();
+      });
     }
-    case "FINISHED":
-      setFlow("verify", "done");
-      setFlowBadge("Flashed", "success");
-      setStatus({ state: "connected", primary: "Flash complete — rebooting" });
-      appendLine("Firmware flashed successfully. Device rebooting.", "system");
-      if (el.consoleMeta) el.consoleMeta.textContent = "";
-      toast("Firmware flashed successfully", "success");
-      break;
-    case "ERROR":
-      setFlowBadge("Error", "error");
-      setStatus({ state: "error", primary: "Flash failed" });
-      appendLine(`Flash error: ${message || details?.error || "unknown"}`, "error");
-      if (el.consoleMeta) el.consoleMeta.textContent = "";
-      toast("Flashing failed — see console", "error");
-      break;
-    default:
-      break;
-  }
+  });
+  observer.observe(document.body, { childList: true });
+}
+
+function onFlashStart() {
+  state.flashing = true;
+  setFlow("flash", "active");
+  setFlowBadge("Flashing", "busy");
+  setStatus({ state: "busy", primary: "Flashing firmware…" });
+  if (el.consoleMeta) el.consoleMeta.textContent = "flashing";
+}
+
+function onFlashEnd() {
+  state.flashing = false;
+  setFlowBadge("Ready");
+  if (el.consoleMeta) el.consoleMeta.textContent = "";
+  // If a serial monitor is live we treat the device as connected; otherwise idle.
+  if (!state.live) setStatus({ state: "idle", primary: "No device connected" });
+  appendLine("Installer closed.", "system");
+  // A new build may have been deployed while the user was flashing.
+  flushPendingUpdate();
 }
 
 /* ============================================================
@@ -694,6 +694,66 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ============================================================
+   Auto-update — site version polling
+   Reads /site-version.json (written at deploy by GitHub Actions).
+   Safe during flashing: defers reload, never interrupts a flash.
+   ============================================================ */
+const SITE_VERSION_URL = "site-version.json";
+const POLL_INTERVAL_MS = 30000;
+
+async function fetchSiteVersion() {
+  try {
+    const res = await fetch(`${SITE_VERSION_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.build || data.version || null;
+  } catch {
+    return null;
+  }
+}
+
+function showUpdateBanner(newBuild) {
+  if (!el.updateBanner) return;
+  state.updatePending = true;
+  if (el.updateSub) {
+    el.updateSub.textContent = newBuild ? `build ${newBuild}` : "A new build is ready";
+  }
+  el.updateBanner.hidden = false;
+  requestAnimationFrame(() => (el.updateBanner.dataset.show = "true"));
+}
+
+function flushPendingUpdate() {
+  // Called when flashing ends — if an update arrived mid-flash, surface it now.
+  if (state.updatePending && el.updateBanner?.hidden) {
+    showUpdateBanner(null);
+  }
+}
+
+el.updateReload?.addEventListener("click", () => window.location.reload());
+el.updateDismiss?.addEventListener("click", () => {
+  el.updateBanner.dataset.show = "false";
+  setTimeout(() => (el.updateBanner.hidden = true), 200);
+});
+
+async function initAutoUpdate() {
+  state.currentVersion = await fetchSiteVersion();
+  // If the deploy hasn't added site-version.json yet, polling is a no-op.
+  if (state.currentVersion === null) return;
+
+  setInterval(async () => {
+    const latest = await fetchSiteVersion();
+    if (!latest || latest === state.currentVersion) return;
+
+    // New build detected. Never interrupt an active flash.
+    if (state.flashing) {
+      state.updatePending = true; // surfaced when the flash dialog closes
+      return;
+    }
+    showUpdateBanner(latest);
+  }, POLL_INTERVAL_MS);
+}
+
+/* ============================================================
    Boot
    ============================================================ */
 initTheme();
@@ -702,6 +762,7 @@ setFlow("connect", "reset");
 setFlowBadge("Ready");
 wireInstall();
 loadVersion();
+initAutoUpdate();
 
 if (!("serial" in navigator)) {
   el.monitorButtons.forEach((b) => {

@@ -1,293 +1,278 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - GW Flasher</title>
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in — GW Flasher</title>
+    <meta name="color-scheme" content="dark light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            max-width: 420px;
-            padding: 40px;
-            animation: slideUp 0.4s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo svg {
-            width: 80px;
-            height: 80px;
-            fill: #667eea;
-        }
-
-        h1 {
-            text-align: center;
-            color: #2d3748;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            font-size: 14px;
-            margin-bottom: 30px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            color: #4a5568;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            font-family: inherit;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-login:active {
-            transform: translateY(0);
-        }
-
-        .btn-login:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-message {
-            background: #fed7d7;
-            color: #c53030;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            margin-bottom: 20px;
-            display: none;
-            animation: shake 0.4s ease;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .github-login {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .btn-github {
-            width: 100%;
-            padding: 12px;
-            background: #24292e;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .btn-github:hover {
-            background: #1a1e22;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(36, 41, 46, 0.3);
-        }
-
-        .github-icon {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
-
-        .totp-section {
-            display: none;
-            animation: slideUp 0.4s ease-out;
-        }
-
-        .totp-section.show {
-            display: block;
-        }
-
-        .info-message {
-            background: #bee3f8;
-            color: #2c5282;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-
-        .back-link {
-            text-align: center;
-            margin-top: 15px;
-        }
-
-        .back-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 14px;
-            transition: color 0.3s ease;
-        }
-
-        .back-link a:hover {
-            color: #764ba2;
-            text-decoration: underline;
-        }
+      :root {
+        --bg: #0f1117;
+        --panel: #151922;
+        --elevated: #1b2130;
+        --focus: #222938;
+        --border: #2f3748;
+        --border-soft: #232a37;
+        --text: #f5f7fa;
+        --text-2: #a4afc1;
+        --muted: #6b7383;
+        --error: #ef4444;
+        --accent: #00c389;
+        --accent-press: #00a676;
+        --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --mono: "JetBrains Mono", Consolas, monospace;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: var(--font);
+        background:
+          radial-gradient(900px 500px at 50% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 380px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .card__head {
+        padding: 24px 24px 18px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--elevated);
+        color: var(--accent);
+      }
+      .brand-mark svg { width: 19px; height: 19px; }
+      .brand-name { font-weight: 600; font-size: 15px; }
+      .brand-sub {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--muted);
+      }
+      h1 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+      .lead { font-size: 13px; color: var(--text-2); }
+      .card__body { padding: 20px 24px 24px; }
+      .field { margin-bottom: 14px; }
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-2);
+        margin-bottom: 6px;
+      }
+      input {
+        width: 100%;
+        height: 40px;
+        padding: 0 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        font: inherit;
+        font-size: 14px;
+        transition: border-color 0.12s, box-shadow 0.12s;
+      }
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+      }
+      input::placeholder { color: var(--muted); }
+      .btn {
+        width: 100%;
+        height: 42px;
+        margin-top: 4px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: #04130d;
+        font: inherit;
+        font-weight: 600;
+        font-size: 14px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition: background 0.12s, opacity 0.12s;
+      }
+      .btn:hover:not(:disabled) { background: var(--accent-press); border-color: var(--accent-press); }
+      .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .error {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: color-mix(in srgb, var(--error) 14%, transparent);
+        border: 1px solid color-mix(in srgb, var(--error) 40%, var(--border));
+        color: color-mix(in srgb, var(--error) 85%, var(--text));
+        padding: 10px 12px;
+        border-radius: 7px;
+        font-size: 13px;
+        margin-bottom: 14px;
+      }
+      .error.show { display: flex; animation: shake 0.35s ease; }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-6px); }
+        75% { transform: translateX(6px); }
+      }
+      .foot {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-soft);
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.5;
+        font-family: var(--mono);
+      }
+      /* TOTP step */
+      .totp { display: none; }
+      .totp.show { display: block; animation: fade 0.25s ease; }
+      @keyframes fade {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .totp__info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--elevated);
+        border: 1px solid var(--border-soft);
+        border-radius: 7px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: var(--text-2);
+        margin-bottom: 16px;
+      }
+      .totp__icon {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        flex: none;
+        color: var(--accent);
+      }
+      .totp__icon svg { width: 18px; height: 18px; }
+      .totp__code {
+        font-family: var(--mono);
+        font-size: 22px;
+        letter-spacing: 8px;
+        text-align: center;
+        height: 48px;
+      }
+      .link-btn {
+        width: 100%;
+        margin-top: 12px;
+        background: none;
+        border: none;
+        color: var(--text-2);
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+        padding: 6px;
+      }
+      .link-btn:hover { color: var(--accent); }
+      @media (prefers-reduced-motion: reduce) {
+        *, .error.show, .totp.show { animation: none !important; transition: none !important; }
+      }
     </style>
-</head>
-<body>
-    <div class="login-container">
-        <div class="logo">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
+  </head>
+  <body>
+    <div class="card">
+      <div class="card__head">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16" /><path d="M4 12h10" /><path d="M4 17h7" /><path d="M17 14l3 3-3 3" />
             </svg>
+          </span>
+          <span>
+            <div class="brand-name">GW Flasher</div>
+            <div class="brand-sub">ESP32-S3 Workbench</div>
+          </span>
         </div>
+        <h1>Sign in</h1>
+        <p class="lead">Authenticate to access the firmware workbench.</p>
+      </div>
 
-        <h1>GW Flasher</h1>
-        <p class="subtitle">Secure ESP32-S3 Firmware Flashing Tool</p>
+      <div class="card__body">
+        <div id="error-message" class="error" role="alert"></div>
 
-        <div id="error-message" class="error-message"></div>
-
-        <!-- Basic Login Form -->
         <form id="login-form" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autocomplete="username">
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required autocomplete="current-password">
-            </div>
-
-            <button type="submit" class="btn-login" id="login-btn">
-                Login
-            </button>
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required autocomplete="username" autofocus />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••" />
+          </div>
+          <button type="submit" class="btn" id="login-btn">Sign in</button>
         </form>
 
-        <!-- TOTP Section (shown after basic auth) -->
-        <div id="totp-section" class="totp-section">
-            <div class="info-message">
-                Enter the 6-digit code from your authenticator app.
+        <div id="totp-section" class="totp">
+          <div class="totp__info">
+            <span class="totp__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+              </svg>
+            </span>
+            <span>Enter the 6-digit code from your authenticator app.</span>
+          </div>
+          <form id="totp-form" onsubmit="handleTOTP(event)">
+            <div class="field">
+              <label for="totp-code">Verification code</label>
+              <input
+                type="text"
+                id="totp-code"
+                name="totp-code"
+                class="totp__code"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                placeholder="000000"
+                autocomplete="one-time-code"
+                required
+              />
             </div>
-
-            <form id="totp-form" onsubmit="handleTOTP(event)">
-                <div class="form-group">
-                    <label for="totp-code">2FA Code</label>
-                    <input 
-                        type="text" 
-                        id="totp-code" 
-                        name="totp-code" 
-                        pattern="[0-9]{6}" 
-                        maxlength="6" 
-                        placeholder="000000"
-                        required 
-                        autocomplete="one-time-code"
-                        inputmode="numeric">
-                </div>
-
-                <button type="submit" class="btn-login">
-                    Verify Code
-                </button>
-
-                <div class="back-link">
-                    <a href="#" onclick="backToLogin(); return false;">← Back to login</a>
-                </div>
-            </form>
+            <button type="submit" class="btn" id="totp-btn">Verify</button>
+            <button type="button" class="link-btn" onclick="backToLogin()">← Back to sign in</button>
+          </form>
         </div>
 
-        <!-- GitHub OAuth Login -->
-        <div class="github-login">
-            <button class="btn-github" onclick="loginWithGitHub()">
-                <svg class="github-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
-                </svg>
-                Continue with GitHub
-            </button>
-        </div>
+        <p class="foot">
+          Access is gated client-side. Credentials are configured by the
+          deployment via repo variables.
+        </p>
+      </div>
     </div>
 
+    <script src="js/auth-config.js"></script>
     <script src="js/auth.js"></script>
-</body>
+  </body>
 </html>

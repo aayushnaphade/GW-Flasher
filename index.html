@@ -302,5 +302,16 @@
 
     <!-- Toast -->
     <div class="toast" data-toast hidden></div>
+
+    <!-- Update-available banner (version polling) -->
+    <div class="update-banner" data-update-banner hidden role="status">
+      <span class="update-banner__dot" aria-hidden="true"></span>
+      <div class="update-banner__text">
+        <strong>New version available</strong>
+        <span class="update-banner__sub" data-update-sub></span>
+      </div>
+      <button class="btn btn--primary btn--sm" type="button" data-update-reload>Reload</button>
+      <button class="icon-btn icon-btn--sq" type="button" data-update-dismiss title="Dismiss">✕</button>
+    </div>
   </body>
 </html>

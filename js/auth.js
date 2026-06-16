@@ -1,232 +1,202 @@
-// Authentication Configuration
+/* ============================================================
+   GW Flasher — login controller
+   Credentials + TOTP secret are injected at deploy time from GitHub repo
+   variables into window.GW_AUTH (see js/auth-config.js, written by pages.yml).
+
+   SECURITY NOTE: GitHub Pages is fully static. Any value shipped to the
+   browser — including the TOTP secret — is visible in page source. This is
+   lightweight access gating, NOT real security/2FA. For true protection,
+   put the site behind an authenticating proxy (e.g. Cloudflare Access).
+   ============================================================ */
+
+const SESSION_KEY = "gw_flasher_session";
+
 const AUTH_CONFIG = {
-    // Basic credentials (change these!)
-    username: 'admin',
-    password: 'changeme123',
-    
-    // TOTP secret (generate from https://www.authenticator.cc/)
-    totpSecret: 'JBSWY3DPEHPK3PXP', // Example secret - CHANGE THIS!
-    
-    // Session duration (24 hours)
-    sessionDuration: 24 * 60 * 60 * 1000,
-    
-    // GitHub OAuth (optional - requires backend)
-    githubClientId: '', // Set this if using GitHub OAuth
+  username: (window.GW_AUTH && window.GW_AUTH.username) || "admin",
+  password: (window.GW_AUTH && window.GW_AUTH.password) || "changeme123",
+  totpSecret: (window.GW_AUTH && window.GW_AUTH.totpSecret) || "",
+  sessionDuration: 24 * 60 * 60 * 1000, // 24h
 };
 
-// Session management
-const SESSION_KEY = 'gw_flasher_session';
-
+/* ---------- UI helpers ---------- */
 function showError(message) {
-    const errorDiv = document.getElementById('error-message');
-    errorDiv.textContent = message;
-    errorDiv.classList.add('show');
-    
-    setTimeout(() => {
-        errorDiv.classList.remove('show');
-    }, 5000);
+  const box = document.getElementById("error-message");
+  if (!box) return;
+  box.textContent = message;
+  box.classList.add("show");
+  clearTimeout(showError._t);
+  showError._t = setTimeout(() => box.classList.remove("show"), 5000);
 }
-
 function hideError() {
-    const errorDiv = document.getElementById('error-message');
-    errorDiv.classList.remove('show');
-}
-
-async function handleLogin(event) {
-    event.preventDefault();
-    hideError();
-    
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const loginBtn = document.getElementById('login-btn');
-    
-    loginBtn.disabled = true;
-    loginBtn.textContent = 'Checking...';
-    
-    // Simulate network delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    if (username === AUTH_CONFIG.username && password === AUTH_CONFIG.password) {
-        // Basic auth passed, show TOTP if enabled
-        if (AUTH_CONFIG.totpSecret) {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('totp-section').classList.add('show');
-            document.getElementById('totp-code').focus();
-        } else {
-            // No 2FA, grant access
-            grantAccess();
-        }
-    } else {
-        showError('Invalid username or password');
-    }
-    
-    loginBtn.disabled = false;
-    loginBtn.textContent = 'Login';
-}
-
-async function handleTOTP(event) {
-    event.preventDefault();
-    hideError();
-    
-    const totpCode = document.getElementById('totp-code').value;
-    
-    if (!totpCode || totpCode.length !== 6) {
-        showError('Please enter a 6-digit code');
-        return;
-    }
-    
-    // Verify TOTP code
-    const isValid = await verifyTOTP(totpCode, AUTH_CONFIG.totpSecret);
-    
-    if (isValid) {
-        grantAccess();
-    } else {
-        showError('Invalid or expired 2FA code');
-        document.getElementById('totp-code').value = '';
-        document.getElementById('totp-code').focus();
-    }
-}
-
-function backToLogin() {
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('totp-section').classList.remove('show');
-    document.getElementById('username').value = '';
-    document.getElementById('password').value = '';
-    document.getElementById('totp-code').value = '';
-    hideError();
+  document.getElementById("error-message")?.classList.remove("show");
 }
 
 function grantAccess() {
-    // Create session
-    const session = {
-        authenticated: true,
-        timestamp: Date.now(),
-        expires: Date.now() + AUTH_CONFIG.sessionDuration
-    };
-    
-    // Store in sessionStorage (more secure) and localStorage (for persistence)
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    
-    // Redirect to main page
-    window.location.href = 'index.html';
+  const session = {
+    authenticated: true,
+    timestamp: Date.now(),
+    expires: Date.now() + AUTH_CONFIG.sessionDuration,
+  };
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.location.href = "index.html";
 }
 
-function loginWithGitHub() {
-    if (!AUTH_CONFIG.githubClientId) {
-        showError('GitHub OAuth is not configured. Please use username/password login.');
-        return;
-    }
-    
-    // GitHub OAuth flow (requires backend to complete)
-    const redirectUri = encodeURIComponent(window.location.origin + '/oauth-callback.html');
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${AUTH_CONFIG.githubClientId}&redirect_uri=${redirectUri}&scope=user:email`;
-    
-    window.location.href = githubAuthUrl;
+/* ---------- Step 1: username / password ---------- */
+async function handleLogin(event) {
+  event.preventDefault();
+  hideError();
+
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  const btn = document.getElementById("login-btn");
+
+  btn.disabled = true;
+  btn.textContent = "Checking…";
+  await new Promise((r) => setTimeout(r, 300));
+
+  const ok = username === AUTH_CONFIG.username && password === AUTH_CONFIG.password;
+  btn.disabled = false;
+  btn.textContent = "Sign in";
+
+  if (!ok) {
+    showError("Invalid username or password.");
+    return;
+  }
+
+  if (AUTH_CONFIG.totpSecret) {
+    // Move to the 2FA step.
+    document.getElementById("login-form").style.display = "none";
+    document.getElementById("totp-section").classList.add("show");
+    const code = document.getElementById("totp-code");
+    code.value = "";
+    code.focus();
+  } else {
+    grantAccess();
+  }
 }
 
-// TOTP verification using HMAC-SHA1
+/* ---------- Step 2: TOTP ---------- */
+async function handleTOTP(event) {
+  event.preventDefault();
+  hideError();
+
+  const input = document.getElementById("totp-code");
+  const code = input.value.trim();
+  const btn = document.getElementById("totp-btn");
+
+  if (!/^\d{6}$/.test(code)) {
+    showError("Enter the 6-digit code from your authenticator.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Verifying…";
+
+  const valid = await verifyTOTP(code, AUTH_CONFIG.totpSecret);
+
+  btn.disabled = false;
+  btn.textContent = "Verify";
+
+  if (valid) {
+    grantAccess();
+  } else {
+    showError("Invalid or expired code. Check your device clock.");
+    input.value = "";
+    input.focus();
+  }
+}
+
+function backToLogin() {
+  hideError();
+  document.getElementById("totp-section").classList.remove("show");
+  document.getElementById("login-form").style.display = "block";
+  document.getElementById("password").value = "";
+  document.getElementById("totp-code").value = "";
+  document.getElementById("username").focus();
+}
+
+/* ============================================================
+   TOTP (RFC 6238) verification via Web Crypto HMAC-SHA1
+   Accepts a ±1 time-step window (±30s) for clock drift.
+   ============================================================ */
 async function verifyTOTP(token, secret) {
-    try {
-        // Get current time step (30 seconds)
-        const timeStep = Math.floor(Date.now() / 1000 / 30);
-        
-        // Check current time step and adjacent ones (allow 30 second window)
-        for (let i = -1; i <= 1; i++) {
-            const code = await generateTOTP(secret, timeStep + i);
-            if (code === token) {
-                return true;
-            }
-        }
-        
-        return false;
-    } catch (error) {
-        console.error('TOTP verification error:', error);
-        return false;
+  try {
+    const step = Math.floor(Date.now() / 1000 / 30);
+    for (let i = -1; i <= 1; i++) {
+      const code = await generateTOTP(secret, step + i);
+      if (code === token) return true;
     }
+    return false;
+  } catch (err) {
+    console.error("TOTP verification error:", err);
+    return false;
+  }
 }
 
-async function generateTOTP(secret, timeStep) {
-    // Decode base32 secret
-    const key = base32Decode(secret);
-    
-    // Convert time step to 8-byte buffer
-    const timeBuffer = new ArrayBuffer(8);
-    const timeView = new DataView(timeBuffer);
-    timeView.setBigUint64(0, BigInt(timeStep), false);
-    
-    // Import key for HMAC
-    const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        key,
-        { name: 'HMAC', hash: 'SHA-1' },
-        false,
-        ['sign']
-    );
-    
-    // Generate HMAC
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, timeBuffer);
-    const hmac = new Uint8Array(signature);
-    
-    // Dynamic truncation
-    const offset = hmac[hmac.length - 1] & 0x0f;
-    const code = (
-        ((hmac[offset] & 0x7f) << 24) |
-        ((hmac[offset + 1] & 0xff) << 16) |
-        ((hmac[offset + 2] & 0xff) << 8) |
-        (hmac[offset + 3] & 0xff)
-    );
-    
-    // Return 6-digit code
-    return (code % 1000000).toString().padStart(6, '0');
+async function generateTOTP(secret, step) {
+  const key = base32Decode(secret);
+
+  const timeBuffer = new ArrayBuffer(8);
+  new DataView(timeBuffer).setBigUint64(0, BigInt(step), false);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, timeBuffer));
+  const offset = sig[sig.length - 1] & 0x0f;
+  const bin =
+    ((sig[offset] & 0x7f) << 24) |
+    ((sig[offset + 1] & 0xff) << 16) |
+    ((sig[offset + 2] & 0xff) << 8) |
+    (sig[offset + 3] & 0xff);
+
+  return (bin % 1000000).toString().padStart(6, "0");
 }
 
 function base32Decode(base32) {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    let bits = '';
-    
-    // Remove padding and convert to uppercase
-    base32 = base32.replace(/=+$/, '').toUpperCase();
-    
-    // Convert each character to 5 bits
-    for (let i = 0; i < base32.length; i++) {
-        const val = alphabet.indexOf(base32[i]);
-        if (val === -1) throw new Error('Invalid base32 character');
-        bits += val.toString(2).padStart(5, '0');
-    }
-    
-    // Convert bits to bytes
-    const bytes = new Uint8Array(Math.floor(bits.length / 8));
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(bits.substr(i * 8, 8), 2);
-    }
-    
-    return bytes;
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = base32.replace(/=+$/, "").replace(/\s+/g, "").toUpperCase();
+  let bits = "";
+  for (const ch of clean) {
+    const val = alphabet.indexOf(ch);
+    if (val === -1) throw new Error("Invalid base32 character in TOTP secret");
+    bits += val.toString(2).padStart(5, "0");
+  }
+  const bytes = new Uint8Array(Math.floor(bits.length / 8));
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(bits.substr(i * 8, 8), 2);
+  }
+  return bytes;
 }
 
-// Check if already authenticated
+/* ---------- Already signed in? ---------- */
 function checkAuth() {
-    const session = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    
-    if (session) {
-        try {
-            const sessionData = JSON.parse(session);
-            
-            if (sessionData.authenticated && sessionData.expires > Date.now()) {
-                // Valid session exists, redirect to main page
-                window.location.href = 'index.html';
-            } else {
-                // Session expired
-                sessionStorage.removeItem(SESSION_KEY);
-                localStorage.removeItem(SESSION_KEY);
-            }
-        } catch (error) {
-            console.error('Session check error:', error);
-        }
+  const session = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+  if (!session) return;
+  try {
+    const data = JSON.parse(session);
+    if (data.authenticated && data.expires > Date.now()) {
+      window.location.href = "index.html";
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
     }
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+  }
 }
 
-// Run auth check on page load
-if (window.location.pathname.includes('auth.html')) {
-    checkAuth();
+window.handleLogin = handleLogin;
+window.handleTOTP = handleTOTP;
+window.backToLogin = backToLogin;
+
+if (window.location.pathname.includes("auth.html") || document.getElementById("login-form")) {
+  checkAuth();
 }
