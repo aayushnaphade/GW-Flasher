@@ -32,8 +32,8 @@ jobs:
         run: |
           rm -rf site
           mkdir -p site
-          cp index.html site/
-          cp -R css js firmware site/
+          cp index.html auth.html site/
+          cp -R css js firmware static site/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
