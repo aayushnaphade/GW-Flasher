@@ -1,173 +1,306 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Production-ready ESP32-S3 firmware flasher with GitHub Pages deployment and live firmware metadata."
+      content="Engineering workbench for flashing, provisioning, and debugging ESP32-S3 gateways from the browser."
     />
-    <meta name="color-scheme" content="light dark" />
-    <title>GW Flasher</title>
-    <meta property="og:title" content="GW Flasher" />
-    <meta
-      property="og:description"
-      content="A clean, production-ready firmware flasher website for ESP32-S3 devices."
+    <meta name="color-scheme" content="dark light" />
+    <title>GW Flasher — ESP32-S3 Workbench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
     />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="static/social.png" />
     <link rel="stylesheet" href="css/styles.css" />
     <script type="module" src="https://unpkg.com/esp-web-tools@latest/dist/web/install-button.js?module"></script>
     <script type="module" src="js/auth-check.js"></script>
-    <script type="module" src="js/app.js" defer></script>
+    <script src="js/app.js" defer></script>
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M7 12h10" />
-              <path d="M12 7v10" />
-              <path d="M4.5 6.5 6.7 8.7" />
-              <path d="M17.3 15.3 19.5 17.5" />
-              <path d="M4.5 17.5 6.7 15.3" />
-              <path d="M17.3 8.7 19.5 6.5" />
-            </svg>
-          </div>
-          <div>
-            <p class="eyebrow">GitHub Pages Flasher</p>
-            <h1>GW Flasher</h1>
-            <p>
-              A production-ready firmware portal for ESP32-S3 devices. Flash from the browser, verify the current build, and keep the public site synced with the private ESP-IDF pipeline.
-            </p>
-          </div>
+    <!-- Environment / compatibility banner -->
+    <div class="env-banner" data-env-banner hidden>
+      <span class="env-banner__icon" aria-hidden="true">!</span>
+      <span class="env-banner__text" data-env-banner-text></span>
+      <a class="env-banner__link" href="https://caniuse.com/web-serial" target="_blank" rel="noreferrer">Why?</a>
+    </div>
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar__brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h16" />
+            <path d="M4 12h10" />
+            <path d="M4 17h7" />
+            <path d="M17 14l3 3-3 3" />
+          </svg>
         </div>
-        <div class="topbar-actions">
-          <button class="pill icon-button" type="button" data-theme-toggle>Dark mode</button>
-          <button class="pill icon-button" type="button" onclick="logout()">Logout</button>
+        <div class="brand-text">
+          <span class="brand-title">GW Flasher</span>
+          <span class="brand-sub">ESP32-S3 Workbench</span>
         </div>
-      </header>
+      </div>
 
-      <section class="hero">
-        <article class="hero-card">
-          <div class="helper-row">
-            <span class="badge">ESP32-S3 ready</span>
-            <span class="badge">GitHub Pages</span>
-            <span class="badge">Secure Web Serial</span>
-          </div>
-          <h2 class="section-title" data-version-headline>Firmware 3.0.0</h2>
-          <p class="install-copy">
-            Use the install button to launch the latest ESP Web Tools component and flash <strong>firmware/manifest.json</strong> from the public repository.
-          </p>
-          <div class="grid grid-two">
-            <div class="card metric-card">
-              <dl>
-                <dt>Firmware version</dt>
-                <dd data-version-value>3.0.0</dd>
-              </dl>
-            </div>
-            <div class="card metric-card">
-              <dl>
-                <dt>Release date</dt>
-                <dd data-build-date-value>2026-06-15</dd>
-              </dl>
-            </div>
-          </div>
-        </article>
+      <!-- Live device status -->
+      <div class="topbar__status" data-device-status-bar>
+        <span class="status-led" data-status-led data-state="idle"></span>
+        <span class="status-primary" data-status-primary>No device connected</span>
+        <span class="status-divider" data-status-detail-wrap hidden>·</span>
+        <span class="status-detail" data-status-chip="chip" hidden></span>
+        <span class="status-detail" data-status-chip="port" hidden></span>
+        <span class="status-detail" data-status-chip="baud" hidden></span>
+        <span class="status-detail status-detail--muted" data-status-chip="seen" hidden></span>
+      </div>
 
-        <aside class="hero-side">
-          <div class="card version-card">
-            <p class="card-kicker">Version card</p>
-            <p class="small-copy">Loading firmware metadata…</p>
-            <div class="version-grid">
-              <dl class="version-field">
-                <dt>Firmware Version</dt>
-                <dd data-version-value>3.0.0</dd>
-              </dl>
-              <dl class="version-field">
-                <dt>Build Date</dt>
-                <dd data-build-date-value>2026-06-15</dd>
-              </dl>
-              <dl class="version-field">
-                <dt>Target Device</dt>
-                <dd data-target-value>ESP32-S3</dd>
-              </dl>
-            </div>
-            <p class="status" data-version-status>Fetching firmware/version.json…</p>
-          </div>
-        </aside>
-      </section>
+      <div class="topbar__actions">
+        <button class="icon-btn" type="button" data-shortcuts-btn title="Keyboard shortcuts (?)">
+          <span aria-hidden="true">⌘</span><span class="icon-btn__label">Shortcuts</span>
+        </button>
+        <button class="icon-btn" type="button" data-theme-toggle title="Toggle theme">
+          <span class="icon-btn__label" data-theme-label>Light mode</span>
+        </button>
+        <button class="icon-btn icon-btn--danger" type="button" onclick="logout()" title="Sign out">
+          <span class="icon-btn__label">Logout</span>
+        </button>
+      </div>
+    </header>
 
-      <section class="grid grid-two">
-        <article class="card install-layout">
-          <div class="install-visual">
-            <div>
-              <p class="card-kicker">Install firmware</p>
-              <h2 class="section-title">Modern browser flashing</h2>
-              <p class="install-copy">
-                The install button uses ESP Web Tools and loads <strong>firmware/manifest.json</strong> directly from GitHub Pages.
-              </p>
-            </div>
-            <div class="install-panel">
-              <div class="install-preview">
-                <div class="install-preview__label">
-                  <strong>Latest public build</strong>
-                  <span>firmware.bin, bootloader.bin, partition-table.bin</span>
-                </div>
-                <span class="badge">Ready to flash</span>
+    <!-- Workbench layout: sidebar + console -->
+    <main class="workbench">
+      <!-- Left operations rail -->
+      <aside class="rail" data-rail>
+        <!-- Device panel -->
+        <section class="panel">
+          <header class="panel__head">
+            <h2 class="panel__title">Device</h2>
+            <span class="panel__hint" data-device-hint>Disconnected</span>
+          </header>
+          <div class="panel__body">
+            <div class="device-card" data-device-card data-state="idle">
+              <div class="device-card__row">
+                <span class="device-card__label">State</span>
+                <span class="device-card__value" data-device-state-text>Not connected</span>
               </div>
-              <div class="install-button-wrap">
-                <button class="install-button-trigger" type="button" data-install-button>
-                  Install Firmware
-                </button>
-                <p class="install-note">
-                  Works in Chromium-based browsers over HTTPS with Web Serial enabled.
-                </p>
-                <esp-web-install-button
-                  class="esp-install-host"
-                  manifest="firmware/manifest.json"
-                >
-                  <span slot="unsupported">Web Serial is required for firmware installation.</span>
-                </esp-web-install-button>
+              <div class="device-card__row">
+                <span class="device-card__label">Port</span>
+                <span class="device-card__value mono" data-device-port>—</span>
+              </div>
+              <div class="device-card__row">
+                <span class="device-card__label">Baud</span>
+                <span class="device-card__value mono" data-device-baud>115200</span>
               </div>
             </div>
           </div>
-          <div class="card">
-            <p class="card-kicker">Connection instructions</p>
-            <ol class="steps">
-              <li><strong>Step 1:</strong> Connect ESP32-S3 via USB</li>
-              <li><strong>Step 2:</strong> Click Connect</li>
-              <li><strong>Step 3:</strong> Select COM Port</li>
-              <li><strong>Step 4:</strong> Flash Firmware</li>
-              <li><strong>Step 5:</strong> Wait for reboot</li>
+        </section>
+
+        <!-- Flash workflow panel -->
+        <section class="panel panel--primary">
+          <header class="panel__head">
+            <h2 class="panel__title">Flash firmware</h2>
+            <span class="badge badge--accent" data-flow-badge>Ready</span>
+          </header>
+          <div class="panel__body">
+            <ol class="flow">
+              <li class="flow__step" data-flow-step="connect">
+                <span class="flow__index">1</span>
+                <span class="flow__label">Connect device over USB</span>
+                <span class="flow__state" aria-hidden="true"></span>
+              </li>
+              <li class="flow__step" data-flow-step="detect">
+                <span class="flow__index">2</span>
+                <span class="flow__label">Select serial port</span>
+                <span class="flow__state" aria-hidden="true"></span>
+              </li>
+              <li class="flow__step" data-flow-step="flash">
+                <span class="flow__index">3</span>
+                <span class="flow__label">Flash firmware image</span>
+                <span class="flow__state" aria-hidden="true"></span>
+              </li>
+              <li class="flow__step" data-flow-step="verify">
+                <span class="flow__index">4</span>
+                <span class="flow__label">Verify &amp; reboot</span>
+                <span class="flow__state" aria-hidden="true"></span>
+              </li>
+              <li class="flow__step" data-flow-step="monitor">
+                <span class="flow__index">5</span>
+                <span class="flow__label">Monitor boot logs</span>
+                <span class="flow__state" aria-hidden="true"></span>
+              </li>
             </ol>
-          </div>
-        </article>
 
-        <article class="card monitor-shell">
-          <div class="monitor-toolbar">
-            <div class="monitor-toolbar__left">
-              <span class="monitor-dot" aria-hidden="true"></span>
-              <div>
-                <p class="card-kicker">Serial monitor</p>
-                <h2 class="section-title">Live console</h2>
+            <button class="btn btn--primary btn--block" type="button" data-install-button>
+              <span class="btn__icon" aria-hidden="true">⚡</span>
+              Flash firmware
+              <kbd class="btn__kbd">⌃⇧F</kbd>
+            </button>
+            <p class="panel__note" data-install-note>
+              Chromium-based browser over HTTPS with Web Serial required.
+            </p>
+
+            <esp-web-install-button
+              class="esp-host"
+              manifest="firmware/manifest.json"
+            >
+              <span slot="unsupported"></span>
+              <span slot="not-allowed"></span>
+            </esp-web-install-button>
+          </div>
+        </section>
+
+        <!-- Firmware metadata panel -->
+        <section class="panel">
+          <header class="panel__head">
+            <h2 class="panel__title">Firmware build</h2>
+            <span class="panel__hint" data-version-status>Loading…</span>
+          </header>
+          <div class="panel__body">
+            <dl class="meta">
+              <div class="meta__row">
+                <dt>Version</dt>
+                <dd>
+                  <span class="mono" data-version-value>—</span>
+                  <button class="copy-btn" type="button" data-copy data-copy-target="version-value" title="Copy version">⧉</button>
+                </dd>
+              </div>
+              <div class="meta__row">
+                <dt>Target</dt>
+                <dd>
+                  <span class="mono" data-target-value>—</span>
+                  <button class="copy-btn" type="button" data-copy data-copy-target="target-value" title="Copy target">⧉</button>
+                </dd>
+              </div>
+              <div class="meta__row">
+                <dt>Build date</dt>
+                <dd><span class="mono" data-build-date-value>—</span></dd>
+              </div>
+              <div class="meta__row" data-commit-row hidden>
+                <dt>Commit</dt>
+                <dd>
+                  <span class="mono" data-commit-value>—</span>
+                  <button class="copy-btn" type="button" data-copy data-copy-target="commit-value" title="Copy commit SHA">⧉</button>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <!-- Troubleshooting (progressive disclosure) -->
+        <section class="panel">
+          <details class="disclosure">
+            <summary class="disclosure__summary">
+              <span>Troubleshooting &amp; drivers</span>
+              <span class="disclosure__chev" aria-hidden="true">▸</span>
+            </summary>
+            <div class="disclosure__body">
+              <p class="help-lead">Device not detected? Work through these in order.</p>
+              <ul class="checklist">
+                <li>Use a <strong>data</strong> USB cable, not power-only</li>
+                <li>Install the USB-serial driver for your board</li>
+                <li>Hold <span class="mono">BOOT</span>, tap <span class="mono">RST</span>, release to enter bootloader</li>
+                <li>Close other apps using the port (Arduino IDE, PlatformIO monitor)</li>
+              </ul>
+              <div class="help-links">
+                <a class="link-chip" href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noreferrer">CP210x driver</a>
+                <a class="link-chip" href="https://www.wch.cn/downloads/CH341SER_EXE.html" target="_blank" rel="noreferrer">CH34x driver</a>
+                <a class="link-chip" href="https://caniuse.com/web-serial" target="_blank" rel="noreferrer">Browser support</a>
               </div>
             </div>
-            <div class="monitor-controls">
-              <button class="secondary-button" type="button" data-monitor-button>Connect serial monitor</button>
-              <button class="secondary-button" type="button" data-monitor-disconnect hidden>Disconnect</button>
-              <button class="link-button" type="button" data-monitor-clear>Clear</button>
+          </details>
+        </section>
+      </aside>
+
+      <!-- Console: the heart of the workbench -->
+      <section class="console" data-console>
+        <header class="console__bar">
+          <div class="console__title">
+            <span class="console__dot" aria-hidden="true"></span>
+            <span>Serial monitor</span>
+            <span class="console__meta mono" data-console-meta></span>
+          </div>
+
+          <div class="console__filters" role="group" aria-label="Log severity filters">
+            <button class="chip chip--filter is-active" type="button" data-filter="all">All</button>
+            <button class="chip chip--filter" type="button" data-filter="info">Info</button>
+            <button class="chip chip--filter" type="button" data-filter="warn">Warn</button>
+            <button class="chip chip--filter" type="button" data-filter="error">Error</button>
+          </div>
+
+          <div class="console__search">
+            <input
+              type="search"
+              class="search-input"
+              placeholder="Search logs…"
+              data-log-search
+              aria-label="Search logs"
+            />
+          </div>
+
+          <div class="console__tools">
+            <button class="btn btn--ghost" type="button" data-monitor-button>
+              <span class="led-mini" data-monitor-led></span>Connect
+            </button>
+            <button class="btn btn--ghost" type="button" data-monitor-disconnect hidden>Disconnect</button>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <button class="icon-btn icon-btn--sq" type="button" data-log-copy title="Copy logs (⌃C)">⧉</button>
+            <button class="icon-btn icon-btn--sq" type="button" data-log-export title="Download logs">⭳</button>
+            <button class="icon-btn icon-btn--sq" type="button" data-monitor-clear title="Clear console (⌃L)">⌫</button>
+            <button class="icon-btn icon-btn--sq" type="button" data-console-collapse title="Collapse console">▾</button>
+          </div>
+        </header>
+
+        <!-- Empty state -->
+        <div class="console__empty" data-console-empty>
+          <div class="empty">
+            <div class="empty__mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="14" rx="2" />
+                <path d="M7 9l3 3-3 3" />
+                <path d="M13 15h4" />
+              </svg>
+            </div>
+            <h3 class="empty__title">Console idle</h3>
+            <p class="empty__text">
+              Connect the serial monitor to stream live output, or flash firmware to watch the boot sequence.
+            </p>
+            <div class="empty__actions">
+              <button class="btn btn--ghost" type="button" data-monitor-button-alt>Connect serial monitor</button>
             </div>
           </div>
-          <p class="monitor-status" data-serial-status>Ready to connect to an ESP32-S3 device.</p>
-          <pre class="monitor-console" data-serial-log aria-live="polite"></pre>
-        </article>
-      </section>
+        </div>
 
-      <footer class="footer">
-        Firmware hosted by GitHub Pages.
-      </footer>
+        <!-- Log stream -->
+        <div class="console__stream" data-serial-log role="log" aria-live="polite" hidden></div>
+
+        <footer class="console__status">
+          <span class="console__status-text" data-serial-status>Ready to connect to an ESP32-S3 device.</span>
+          <span class="console__count" data-log-count></span>
+        </footer>
+      </section>
     </main>
+
+    <!-- Shortcuts overlay -->
+    <div class="overlay" data-shortcuts-overlay hidden>
+      <div class="overlay__card" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <header class="overlay__head">
+          <h2>Keyboard shortcuts</h2>
+          <button class="icon-btn icon-btn--sq" type="button" data-shortcuts-close title="Close">✕</button>
+        </header>
+        <ul class="shortcuts">
+          <li><span>Flash firmware</span><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></li>
+          <li><span>Reconnect serial</span><kbd>Ctrl</kbd><kbd>R</kbd></li>
+          <li><span>Clear console</span><kbd>Ctrl</kbd><kbd>L</kbd></li>
+          <li><span>Copy logs</span><kbd>Ctrl</kbd><kbd>C</kbd></li>
+          <li><span>Focus search</span><kbd>/</kbd></li>
+          <li><span>This help</span><kbd>?</kbd></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" data-toast hidden></div>
   </body>
 </html>
