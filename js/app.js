@@ -1,8 +1,10 @@
 /* ============================================================
    GW Flasher — workbench controller
-   Keeps existing integrations: ESP Web Tools install button,
+   Native esptool-js flashing rendered in our own themed modal.
    Web Serial monitor, firmware/version.json metadata.
    ============================================================ */
+
+import { flashFirmware } from "./flasher.js";
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
@@ -39,12 +41,17 @@ const el = {
 
   installButton: $("[data-install-button]"),
   installNote: $("[data-install-note]"),
-  installHost: $("esp-web-install-button"),
 
   flashProgress: $("[data-flash-progress]"),
   progressLabel: $("[data-progress-label]"),
   progressPct: $("[data-progress-pct]"),
   progressBar: $("[data-progress-bar]"),
+
+  flashModal: $("[data-flash-modal]"),
+  flashModalTitle: $("[data-flash-modal-title]"),
+  flashModalSub: $("[data-flash-modal-sub]"),
+  flashModalBody: $("[data-flash-modal-body]"),
+  flashModalClose: $("[data-flash-modal-close]"),
 
   versionStatus: $("[data-version-status]"),
   versionValues: $$("[data-version-value]"),
@@ -98,7 +105,6 @@ const state = {
   currentVersion: null,
   updatePending: false,
   resumeMonitorAfterFlash: false,
-  progressTimer: null,
 };
 
 /* ============================================================
@@ -560,11 +566,12 @@ $$("[data-copy]").forEach((btn) => {
 });
 
 /* ============================================================
-   ESP Web Tools install button proxy + flow tracking
+   Native flashing — themed modal + esptool-js
    ============================================================ */
-async function wireInstall() {
-  if (!el.installButton || !el.installHost) return;
+const MANIFEST_PATH = "firmware/manifest.json";
 
+function wireInstall() {
+  if (!el.installButton) return;
   const supported = window.isSecureContext && "serial" in navigator;
   el.installButton.disabled = !supported;
 
@@ -578,57 +585,268 @@ async function wireInstall() {
     return;
   }
 
-  await customElements.whenDefined("esp-web-install-button");
-
-  el.installButton.addEventListener("click", startFlash);
-  observeFlashDialog();
+  el.installButton.addEventListener("click", openFlashModal);
+  el.flashModalClose?.addEventListener("click", () => {
+    if (state.flashing) return; // don't allow closing mid-flash
+    closeFlashModal();
+  });
+  el.flashModal?.addEventListener("click", (e) => {
+    if (e.target === el.flashModal && !state.flashing) closeFlashModal();
+  });
 }
 
-async function startFlash() {
+function openFlashModal() {
+  if (!el.flashModal) return;
+  el.flashModal.hidden = false;
+  renderFlashMenu();
+}
+function closeFlashModal() {
+  if (!el.flashModal) return;
+  el.flashModal.hidden = true;
+}
+
+/* ---------- Modal: action menu (Install / Logs) ---------- */
+function renderFlashMenu() {
+  if (el.flashModalTitle) el.flashModalTitle.textContent = "Firmware";
+  if (el.flashModalSub) {
+    const v = state.copyTargets["version-value"];
+    el.flashModalSub.textContent = `${state.copyTargets["target-value"] || "ESP32-S3"}${v ? " · v" + v : ""}`;
+  }
+  el.flashModalBody.innerHTML = `
+    <div class="flash-actions">
+      <button class="flash-action" data-act="install">
+        <span class="flash-action__ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
+          </svg>
+        </span>
+        <span class="flash-action__text">
+          Install firmware
+          <small>Writes bootloader, table &amp; app</small>
+        </span>
+      </button>
+      <button class="flash-action" data-act="logs">
+        <span class="flash-action__ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3" /><path d="M13 15h4" />
+          </svg>
+        </span>
+        <span class="flash-action__text">
+          Logs &amp; console
+          <small>Open the serial monitor</small>
+        </span>
+      </button>
+    </div>
+  `;
+  el.flashModalBody.querySelector('[data-act="install"]')?.addEventListener("click", beginFlash);
+  el.flashModalBody.querySelector('[data-act="logs"]')?.addEventListener("click", () => {
+    closeFlashModal();
+    connectMonitor();
+  });
+}
+
+/* ---------- Modal: installing view ---------- */
+function renderInstalling(label, pct) {
+  const indeterminate = pct == null;
+  el.flashModalBody.innerHTML = `
+    <div class="flash-phase">
+      <h3 class="flash-phase__title">Installing</h3>
+      <div class="ring" data-indeterminate="${indeterminate}" style="--pct:${pct || 0}">
+        <span class="ring__spin"></span>
+        <span class="ring__pct" data-ring-pct>${pct != null ? pct + "%" : ""}</span>
+      </div>
+      <p class="flash-phase__note" data-phase-note>${label}</p>
+      <p class="flash-phase__note" style="margin-top:6px;color:var(--muted)">
+        Keep this tab visible to avoid throttling.
+      </p>
+    </div>
+  `;
+}
+function updateInstalling(label, pct) {
+  const ring = el.flashModalBody.querySelector(".ring");
+  const ringPct = el.flashModalBody.querySelector("[data-ring-pct]");
+  const note = el.flashModalBody.querySelector("[data-phase-note]");
+  if (!ring) return renderInstalling(label, pct);
+  if (pct == null) {
+    ring.dataset.indeterminate = "true";
+    if (ringPct) ringPct.textContent = "";
+  } else {
+    ring.dataset.indeterminate = "false";
+    ring.style.setProperty("--pct", pct);
+    if (ringPct) ringPct.textContent = `${pct}%`;
+  }
+  if (note && label) note.textContent = label;
+}
+
+/* ---------- Modal: result views ---------- */
+function renderSuccess() {
+  el.flashModalBody.innerHTML = `
+    <div class="flash-phase">
+      <div class="flash-result">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      </div>
+      <h3 class="flash-phase__title" style="text-align:center">Installation complete</h3>
+      <p class="flash-phase__note">Firmware written and the device is rebooting.</p>
+      <div class="flash-foot">
+        <button class="btn btn--ghost" data-done>Close</button>
+        <button class="btn btn--primary" data-monitor>Open serial monitor</button>
+      </div>
+    </div>
+  `;
+  el.flashModalBody.querySelector("[data-done]")?.addEventListener("click", closeFlashModal);
+  el.flashModalBody.querySelector("[data-monitor]")?.addEventListener("click", () => {
+    closeFlashModal();
+    setTimeout(() => connectMonitor(), 800);
+  });
+}
+
+function renderError(kind, message) {
+  const causesByKind = {
+    init: [
+      "Device not in bootloader mode — hold BOOT, tap RST, release",
+      "USB cable is power-only (use a data cable)",
+      "Driver missing for your USB-serial chip",
+      "Port already open in another app",
+    ],
+    write: ["Connection dropped mid-write", "Faulty cable or USB hub", "Try a different USB port"],
+    download: ["Firmware asset missing on the server", "Network/proxy blocked the download"],
+    unsupported: ["The published manifest has no build for this chip"],
+    erase: ["Erase failed — retry, or skip erase"],
+  };
+  const causes = causesByKind[kind] || ["Unexpected error during flashing"];
+  el.flashModalBody.innerHTML = `
+    <div class="flash-phase">
+      <div class="flash-result" data-tone="error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8v5" /><path d="M12 16h.01" /><circle cx="12" cy="12" r="9" />
+        </svg>
+      </div>
+      <h3 class="flash-phase__title" style="text-align:center">Installation failed</h3>
+      <p class="flash-phase__note">${escapeHTML(message || "Something went wrong.")}</p>
+      <ul class="causes">${causes.map((c) => `<li>${escapeHTML(c)}</li>`).join("")}</ul>
+      <div class="flash-foot">
+        <button class="btn btn--ghost" data-done>Close</button>
+        <button class="btn btn--primary" data-retry>Retry</button>
+      </div>
+    </div>
+  `;
+  el.flashModalBody.querySelector("[data-done]")?.addEventListener("click", closeFlashModal);
+  el.flashModalBody.querySelector("[data-retry]")?.addEventListener("click", beginFlash);
+}
+
+function escapeHTML(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ---------- The flash run ---------- */
+async function beginFlash() {
   if (state.flashing) return;
 
-  // A serial port can only be held by one consumer. If our monitor has the
-  // port open, esp-web-tools cannot open it ("serial is busy"). Release it
-  // first, and remember to reconnect once flashing finishes.
+  // Free the port from our serial monitor first (one consumer at a time).
   if (state.live || state.port) {
     appendLine("Releasing serial monitor so the flasher can use the port…", "system");
     state.resumeMonitorAfterFlash = state.live;
     await releasePort();
-    // Give the OS a moment to fully free the port handle.
     await new Promise((r) => setTimeout(r, 400));
   }
 
-  setFlow("detect", "active");
+  let port;
+  try {
+    port = await navigator.serial.requestPort();
+  } catch {
+    // User cancelled the port picker — return to the menu.
+    renderFlashMenu();
+    return;
+  }
+
+  state.flashing = true;
+  setFlow("flash", "active");
   setFlowBadge("Flashing", "busy");
-  setStatus({ state: "busy", primary: "Launching installer…" });
-  appendLine("Opening firmware installer…", "system");
+  setStatus({ state: "busy", primary: "Flashing firmware…" });
+  if (el.consoleMeta) el.consoleMeta.textContent = "flashing";
+  renderInstalling("Connecting to device…", null);
+  showProgress("Connecting…", "indeterminate");
 
-  const hostBtn = el.installHost.shadowRoot?.querySelector("slot, button");
-  if (hostBtn) hostBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  else el.installHost.click();
+  try {
+    await flashFirmware({
+      port,
+      manifestPath: MANIFEST_PATH,
+      eraseFirst: false,
+      onEvent: onFlashEvent,
+    });
+  } catch (err) {
+    onFlashEvent({ phase: "error", kind: "write", message: err?.message || String(err) });
+  }
 }
 
-/* esp-web-tools opens an <ewt-install-dialog> on the body while flashing and
-   removes it when done. Watching that node is version-proof and lets us drive
-   flow state without depending on internal event names. */
-function observeFlashDialog() {
-  const isDialog = (node) =>
-    node?.nodeType === 1 && node.tagName?.toLowerCase() === "ewt-install-dialog";
-
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      m.addedNodes.forEach((node) => {
-        if (isDialog(node)) onFlashStart(node);
-      });
-      m.removedNodes.forEach((node) => {
-        if (isDialog(node)) onFlashEnd();
-      });
+function onFlashEvent(e) {
+  switch (e.phase) {
+    case "init":
+      updateInstalling(e.message, null);
+      appendLine(e.chip ? `Detected ${e.chip}` : e.message, "system");
+      setStatus({ state: "busy", primary: e.message });
+      break;
+    case "preparing":
+      updateInstalling(e.message, null);
+      appendLine(e.message, "system");
+      break;
+    case "erasing":
+      updateInstalling("Erasing flash…", null);
+      appendLine("Erasing flash…", "system");
+      break;
+    case "writing": {
+      const pct = e.percentage ?? 0;
+      updateInstalling("Writing firmware…", pct);
+      setProgress(pct, "Writing firmware…");
+      setStatus({ state: "busy", primary: `Writing firmware… ${pct}%` });
+      if (el.consoleMeta) el.consoleMeta.textContent = `flashing ${pct}%`;
+      break;
     }
-  });
-  observer.observe(document.body, { childList: true });
+    case "finished":
+      finishFlash(true);
+      break;
+    case "error":
+      finishFlash(false, e.kind, e.message);
+      break;
+  }
 }
 
-/* ---------- Progress bar ---------- */
+function finishFlash(success, kind, message) {
+  state.flashing = false;
+  if (el.consoleMeta) el.consoleMeta.textContent = "";
+
+  if (success) {
+    setFlow("verify", "done");
+    setFlowBadge("Flashed", "success");
+    finishProgress("success", "Flash complete");
+    appendLine("Firmware flashed. Device rebooting.", "system");
+    toast("Firmware flashed successfully", "success");
+    renderSuccess();
+  } else {
+    setFlowBadge("Error", "error");
+    finishProgress("error", "Flash failed");
+    setStatus({ state: "error", primary: "Flash failed" });
+    appendLine(`Flash error: ${message || "unknown"}`, "error");
+    toast("Flashing failed", "error");
+    renderError(kind, message);
+  }
+
+  if (state.resumeMonitorAfterFlash && success) {
+    state.resumeMonitorAfterFlash = false;
+    appendLine("Reconnecting serial monitor after reboot…", "system");
+    setTimeout(() => connectMonitor(), 1500);
+  } else if (!state.live && success) {
+    setStatus({ state: "idle", primary: "No device connected" });
+  }
+
+  flushPendingUpdate();
+}
+
+/* ---------- Rail inline progress bar ---------- */
 function showProgress(label, mode = "indeterminate") {
   if (!el.flashProgress) return;
   el.flashProgress.hidden = false;
@@ -655,104 +873,6 @@ function finishProgress(tone, label) {
   setTimeout(() => {
     if (el.flashProgress) el.flashProgress.hidden = true;
   }, 2600);
-}
-
-/* The bundled dialog renders progress text/percent in its shadow DOM. We poll
-   it to mirror a real percentage when available; otherwise we keep the bar in
-   indeterminate mode so the user still sees activity. */
-function startProgressPolling(dialog) {
-  stopProgressPolling();
-  let lastPhase = "";
-  state.progressTimer = setInterval(() => {
-    const text = readDialogText(dialog);
-    if (!text) return;
-
-    const phase = detectPhase(text);
-    if (phase && phase !== lastPhase) {
-      lastPhase = phase;
-      appendLine(`Flasher: ${phase}`, "system");
-      if (el.consoleMeta) el.consoleMeta.textContent = phase.toLowerCase();
-    }
-
-    const pctMatch = text.match(/(\d{1,3})\s*%/);
-    if (pctMatch) {
-      const pct = Math.min(100, parseInt(pctMatch[1], 10));
-      setProgress(pct, phase || "Writing firmware…");
-      setStatus({ state: "busy", primary: `${phase || "Writing"}… ${pct}%` });
-    } else if (phase) {
-      // Known phase but no number yet (erasing, preparing) — keep indeterminate.
-      if (el.flashProgress?.dataset.mode !== "determinate") {
-        if (el.progressLabel) el.progressLabel.textContent = phase;
-      }
-    }
-  }, 350);
-}
-function stopProgressPolling() {
-  if (state.progressTimer) {
-    clearInterval(state.progressTimer);
-    state.progressTimer = null;
-  }
-}
-function readDialogText(dialog) {
-  try {
-    // Walk shadow roots to collect visible text.
-    const root = dialog.shadowRoot || dialog;
-    return (root.textContent || "").replace(/\s+/g, " ").trim();
-  } catch {
-    return "";
-  }
-}
-function detectPhase(text) {
-  const t = text.toLowerCase();
-  if (t.includes("erasing")) return "Erasing";
-  if (t.includes("writing") || t.includes("flashing")) return "Writing firmware";
-  if (t.includes("preparing")) return "Preparing";
-  if (t.includes("installation complete") || t.includes("finished") || t.includes("success")) return "Complete";
-  if (t.includes("error") || t.includes("failed")) return "Error";
-  return "";
-}
-
-function onFlashStart(dialog) {
-  state.flashing = true;
-  setFlow("flash", "active");
-  setFlowBadge("Flashing", "busy");
-  setStatus({ state: "busy", primary: "Flashing firmware…" });
-  if (el.consoleMeta) el.consoleMeta.textContent = "flashing";
-  showProgress("Preparing flash…", "indeterminate");
-  startProgressPolling(dialog);
-}
-
-async function onFlashEnd() {
-  stopProgressPolling();
-  state.flashing = false;
-  if (el.consoleMeta) el.consoleMeta.textContent = "";
-
-  // Determine success/failure from the last status text if possible.
-  const lastText = el.progressLabel?.textContent || "";
-  if (/error/i.test(lastText)) {
-    setFlowBadge("Error", "error");
-    finishProgress("error", "Flash failed — see installer");
-    setStatus({ state: "error", primary: "Flash failed" });
-    toast("Flashing failed", "error");
-  } else {
-    setFlow("verify", "done");
-    setFlowBadge("Flashed", "success");
-    finishProgress("success", "Flash complete");
-    appendLine("Firmware flashed. Device rebooting.", "system");
-    toast("Firmware flashed successfully", "success");
-  }
-
-  // Reconnect the serial monitor if we closed it to free the port.
-  if (state.resumeMonitorAfterFlash) {
-    state.resumeMonitorAfterFlash = false;
-    appendLine("Reconnecting serial monitor…", "system");
-    // The device is rebooting; wait briefly before grabbing the port.
-    setTimeout(() => connectMonitor(), 1200);
-  } else if (!state.live) {
-    setStatus({ state: "idle", primary: "No device connected" });
-  }
-
-  flushPendingUpdate();
 }
 
 /* ============================================================
