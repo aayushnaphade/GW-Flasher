@@ -714,6 +714,11 @@ function renderError(kind, message) {
     download: ["Firmware asset missing on the server", "Network/proxy blocked the download"],
     unsupported: ["The published manifest has no build for this chip"],
     erase: ["Erase failed — retry, or skip erase"],
+    module: [
+      "No internet access to load the flashing engine",
+      "A browser extension or CSP blocked the CDN",
+      "Try disabling ad/script blockers for this site",
+    ],
   };
   const causes = causesByKind[kind] || ["Unexpected error during flashing"];
   el.flashModalBody.innerHTML = `
