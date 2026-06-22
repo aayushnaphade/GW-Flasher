@@ -1,0 +1,20 @@
+{
+  "channels": [
+    {
+      "id": "stable",
+      "name": "Stable",
+      "description": "Production-ready firmware (main branch)",
+      "path": "firmware",
+      "badge": "stable",
+      "is_default": true
+    },
+    {
+      "id": "beta",
+      "name": "Beta",
+      "description": "Feature branch builds — may be unstable",
+      "path": "firmware/beta",
+      "badge": "beta",
+      "is_default": false
+    }
+  ]
+}

@@ -515,7 +515,7 @@ function setNodes(nodes, value) {
 async function loadVersion() {
   try {
     if (el.versionStatus) el.versionStatus.textContent = "Loading…";
-    const res = await fetch("firmware/version.json", { cache: "no-store" });
+    const res = await fetch(`${channelBasePath}/version.json`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -566,9 +566,55 @@ $$("[data-copy]").forEach((btn) => {
 });
 
 /* ============================================================
+   Firmware Channel Selection (stable / beta)
+   ============================================================ */
+let activeChannel = localStorage.getItem("gw-flasher-channel") || "stable";
+let channelBasePath = "firmware"; // updated by loadChannels()
+
+async function loadChannels() {
+  try {
+    const res = await fetch("firmware/channels.json", { cache: "no-store" });
+    if (!res.ok) return;
+    const { channels } = await res.json();
+    if (!Array.isArray(channels) || channels.length < 2) return;
+
+    const ch = channels.find((c) => c.id === activeChannel) || channels.find((c) => c.is_default) || channels[0];
+    activeChannel = ch.id;
+    channelBasePath = ch.path;
+
+    // Render channel toggle if a selector element exists in the DOM
+    const selector = document.querySelector("[data-channel-selector]");
+    if (selector) {
+      selector.innerHTML = channels
+        .map(
+          (c) =>
+            `<button data-channel="${c.id}" class="channel-btn ${c.id === activeChannel ? "active" : ""}" title="${c.description}">
+              <span class="channel-badge channel-badge--${c.badge}">${c.name}</span>
+              ${c.id !== "stable" ? `<span class="channel-detail">${c.description}</span>` : ""}
+            </button>`
+        )
+        .join("");
+
+      selector.querySelectorAll("[data-channel]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.channel;
+          if (id === activeChannel) return;
+          localStorage.setItem("gw-flasher-channel", id);
+          location.reload(); // reload to pick up the new channel's firmware
+        });
+      });
+    }
+  } catch {
+    // channels.json missing or unparseable — stay on stable
+  }
+}
+
+/* ============================================================
    Native flashing — themed modal + esptool-js
    ============================================================ */
-const MANIFEST_PATH = "firmware/manifest.json";
+function getManifestPath() {
+  return `${channelBasePath}/manifest.json`;
+}
 
 function wireInstall() {
   if (!el.installButton) return;
@@ -779,7 +825,7 @@ async function beginFlash() {
   try {
     await flashFirmware({
       port,
-      manifestPath: MANIFEST_PATH,
+      manifestPath: getManifestPath(),
       eraseFirst: false,
       onEvent: onFlashEvent,
     });
@@ -1015,7 +1061,7 @@ checkCompat();
 setFlow("connect", "reset");
 setFlowBadge("Ready");
 wireInstall();
-loadVersion();
+loadChannels().then(() => loadVersion());
 initAutoUpdate();
 
 if (!("serial" in navigator)) {

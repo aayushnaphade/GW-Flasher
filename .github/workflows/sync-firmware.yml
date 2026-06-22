@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: firmware-sync
+  group: firmware-sync-${{ github.event.client_payload.channel || 'stable' }}
   cancel-in-progress: false
 
 jobs:
@@ -19,6 +19,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Determine channel
+        id: channel
+        run: |
+          CHANNEL="${{ github.event.client_payload.channel }}"
+          if [ -z "$CHANNEL" ] || [ "$CHANNEL" = "stable" ]; then
+            echo "dir=firmware" >> "$GITHUB_OUTPUT"
+            echo "name=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=firmware/${CHANNEL}" >> "$GITHUB_OUTPUT"
+            echo "name=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download firmware artifacts
         env:
           FIRMWARE_URL: ${{ github.event.client_payload.firmware_url }}
@@ -26,6 +38,8 @@ jobs:
           PARTITION_TABLE_URL: ${{ github.event.client_payload.partition_table_url }}
           MANIFEST_URL: ${{ github.event.client_payload.manifest_url }}
           VERSION_URL: ${{ github.event.client_payload.version_url }}
+          STORAGE_URL: ${{ github.event.client_payload.storage_url }}
+          TARGET_DIR: ${{ steps.channel.outputs.dir }}
         run: |
           set -euo pipefail
           test -n "$FIRMWARE_URL"
@@ -33,19 +47,45 @@ jobs:
           test -n "$PARTITION_TABLE_URL"
           test -n "$MANIFEST_URL"
           test -n "$VERSION_URL"
-          mkdir -p firmware
-          curl -fsSL "$FIRMWARE_URL" -o firmware/firmware.bin
-          curl -fsSL "$BOOTLOADER_URL" -o firmware/bootloader.bin
-          curl -fsSL "$PARTITION_TABLE_URL" -o firmware/partition-table.bin
-          curl -fsSL "$MANIFEST_URL" -o firmware/manifest.json
-          curl -fsSL "$VERSION_URL" -o firmware/version.json
-          test -s firmware/firmware.bin
-          test -s firmware/bootloader.bin
-          test -s firmware/partition-table.bin
-          test -s firmware/manifest.json
-          test -s firmware/version.json
+          mkdir -p "$TARGET_DIR"
+          curl -fsSL "$FIRMWARE_URL" -o "$TARGET_DIR/firmware.bin"
+          curl -fsSL "$BOOTLOADER_URL" -o "$TARGET_DIR/bootloader.bin"
+          curl -fsSL "$PARTITION_TABLE_URL" -o "$TARGET_DIR/partition-table.bin"
+          curl -fsSL "$MANIFEST_URL" -o "$TARGET_DIR/manifest.json"
+          curl -fsSL "$VERSION_URL" -o "$TARGET_DIR/version.json"
+          # Storage (LittleFS web UI) is optional — only present in builds with the portal
+          if [ -n "${STORAGE_URL:-}" ]; then
+            curl -fsSL "$STORAGE_URL" -o "$TARGET_DIR/storage.bin" || true
+          fi
+          test -s "$TARGET_DIR/firmware.bin"
+          test -s "$TARGET_DIR/bootloader.bin"
+          test -s "$TARGET_DIR/partition-table.bin"
+          test -s "$TARGET_DIR/manifest.json"
+          test -s "$TARGET_DIR/version.json"
+
+      - name: Update channels.json with beta metadata
+        if: steps.channel.outputs.name != 'stable'
+        env:
+          CHANNEL_NAME: ${{ steps.channel.outputs.name }}
+          CHANNEL_DIR: ${{ steps.channel.outputs.dir }}
+          BRANCH: ${{ github.event.client_payload.git_branch }}
+        run: |
+          # Read the version from the just-downloaded version.json
+          VERSION=$(jq -r '.version // "unknown"' "$CHANNEL_DIR/version.json")
+          COMMIT=$(jq -r '.git_commit // ""' "$CHANNEL_DIR/version.json" | head -c 7)
+          BRANCH_NAME="${BRANCH:-feature}"
+
+          # Update channels.json to reflect the beta's current state
+          jq --arg ch "$CHANNEL_NAME" \
+             --arg desc "Branch: $BRANCH_NAME ($VERSION @ $COMMIT)" \
+             --arg path "$CHANNEL_DIR" \
+             '(.channels[] | select(.id == $ch)) |= (.description = $desc | .path = $path)' \
+             firmware/channels.json > firmware/channels.json.tmp \
+          && mv firmware/channels.json.tmp firmware/channels.json
 
       - name: Commit updated firmware
+        env:
+          CHANNEL_NAME: ${{ steps.channel.outputs.name }}
         run: |
           set -euo pipefail
           if git diff --quiet -- firmware; then
@@ -55,5 +95,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add firmware
-          git commit -m "Sync firmware assets"
+          git commit -m "Sync firmware assets [${CHANNEL_NAME}]"
           git push

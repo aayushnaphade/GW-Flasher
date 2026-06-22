@@ -1,0 +1,13 @@
+{
+  "name": "GW-2E3F-2026 Firmware (Beta)",
+  "version": "0.0.0-beta",
+  "builds": [{
+    "chipFamily": "ESP32-S3",
+    "parts": [
+      { "offset": "0x0", "path": "bootloader.bin" },
+      { "offset": "0x8000", "path": "partition-table.bin" },
+      { "offset": "0x20000", "path": "firmware.bin" },
+      { "offset": "0x620000", "path": "storage.bin" }
+    ]
+  }]
+}
