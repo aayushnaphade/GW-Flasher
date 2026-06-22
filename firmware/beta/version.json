@@ -1,10 +1,10 @@
 {
-  "version": "0.0.0-beta",
-  "build_date": "pending",
+  "version": "beta-30",
+  "build_date": "2026-06-22T23:55:32Z",
   "target": "ESP32-S3",
-  "git_commit": "",
+  "git_commit": "3a14bf4382fc7caa7e2021683959281daee25342",
   "git_branch": "feature/local-config-portal",
-  "build_number": "0",
+  "build_number": "30",
   "is_release": false,
   "channel": "beta"
 }
