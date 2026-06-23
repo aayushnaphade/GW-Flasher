@@ -1117,6 +1117,25 @@ kbd {
 .flash-action__text { display: flex; flex-direction: column; }
 .flash-action__text small { color: var(--muted); font-size: 12px; }
 
+/* Danger action (erase flash) */
+.flash-action--danger .flash-action__ico { color: var(--error); }
+.flash-action--danger:hover {
+  border-color: color-mix(in srgb, var(--error) 55%, var(--border));
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+}
+
+/* Danger button (confirm erase) */
+.btn--danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: #fff;
+  font-weight: 600;
+}
+.btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 85%, #000);
+  border-color: color-mix(in srgb, var(--error) 85%, #000);
+}
+
 /* Phase view */
 .flash-phase { text-align: center; padding: 6px 0 4px; }
 .flash-phase__title {

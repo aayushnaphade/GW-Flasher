@@ -4,7 +4,7 @@
    Web Serial monitor, firmware/version.json metadata.
    ============================================================ */
 
-import { flashFirmware } from "./flasher.js";
+import { flashFirmware, eraseChip } from "./flasher.js";
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
@@ -682,6 +682,17 @@ function renderFlashMenu() {
           <small>Open the serial monitor</small>
         </span>
       </button>
+      <button class="flash-action flash-action--danger" data-act="erase">
+        <span class="flash-action__ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" />
+          </svg>
+        </span>
+        <span class="flash-action__text">
+          Erase flash
+          <small>Wipe everything — clears WiFi creds &amp; config</small>
+        </span>
+      </button>
     </div>
   `;
   el.flashModalBody.querySelector('[data-act="install"]')?.addEventListener("click", beginFlash);
@@ -689,6 +700,7 @@ function renderFlashMenu() {
     closeFlashModal();
     connectMonitor();
   });
+  el.flashModalBody.querySelector('[data-act="erase"]')?.addEventListener("click", confirmErase);
 }
 
 /* ---------- Modal: installing view ---------- */
@@ -831,6 +843,123 @@ async function beginFlash() {
     });
   } catch (err) {
     onFlashEvent({ phase: "error", kind: "write", message: err?.message || String(err) });
+  }
+}
+
+/* ---------- Erase flash (factory reset) ---------- */
+function confirmErase() {
+  el.flashModalBody.innerHTML = `
+    <div class="flash-phase">
+      <div class="flash-result" data-tone="error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        </svg>
+      </div>
+      <h3 class="flash-phase__title" style="text-align:center">Erase entire flash?</h3>
+      <p class="flash-phase__note">
+        This wipes <strong>everything</strong> on the device — firmware, saved WiFi
+        credentials, and all configuration. The gateway will boot back onto the
+        default commissioning network (<code>spark</code>) and you'll need to
+        re-install firmware afterwards.
+      </p>
+      <div class="flash-foot">
+        <button class="btn btn--ghost" data-cancel>Cancel</button>
+        <button class="btn btn--danger" data-confirm>Erase flash</button>
+      </div>
+    </div>
+  `;
+  el.flashModalBody.querySelector("[data-cancel]")?.addEventListener("click", renderFlashMenu);
+  el.flashModalBody.querySelector("[data-confirm]")?.addEventListener("click", beginErase);
+}
+
+async function beginErase() {
+  if (state.flashing) return;
+
+  // Free the port from our serial monitor first (one consumer at a time).
+  if (state.live || state.port) {
+    appendLine("Releasing serial monitor so the flasher can use the port…", "system");
+    state.resumeMonitorAfterFlash = false;
+    await releasePort();
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  let port;
+  try {
+    port = await navigator.serial.requestPort();
+  } catch {
+    renderFlashMenu();
+    return;
+  }
+
+  state.flashing = true;
+  setFlow("flash", "active");
+  setFlowBadge("Erasing", "busy");
+  setStatus({ state: "busy", primary: "Erasing flash…" });
+  if (el.consoleMeta) el.consoleMeta.textContent = "erasing";
+  renderInstalling("Connecting to device…", null);
+  showProgress("Connecting…", "indeterminate");
+
+  try {
+    await eraseChip({ port, onEvent: onEraseEvent });
+  } catch (err) {
+    onEraseEvent({ phase: "error", kind: "erase", message: err?.message || String(err) });
+  }
+}
+
+function onEraseEvent(e) {
+  switch (e.phase) {
+    case "init":
+      updateInstalling(e.message, null);
+      appendLine(e.chip ? `Detected ${e.chip}` : e.message, "system");
+      setStatus({ state: "busy", primary: e.message });
+      break;
+    case "erasing":
+      updateInstalling("Erasing entire flash…", null);
+      appendLine("Erasing entire flash… this can take a moment.", "system");
+      break;
+    case "finished":
+      finishErase(true);
+      break;
+    case "error":
+      finishErase(false, e.kind, e.message);
+      break;
+  }
+}
+
+function finishErase(success, kind, message) {
+  state.flashing = false;
+  if (el.consoleMeta) el.consoleMeta.textContent = "";
+
+  if (success) {
+    setFlowBadge("Erased", "success");
+    finishProgress("success", "Flash erased");
+    setStatus({ state: "idle", primary: "Flash erased — install firmware to continue" });
+    appendLine("Flash fully erased. Install firmware to continue.", "system");
+    toast("Flash erased successfully", "success");
+    el.flashModalBody.innerHTML = `
+      <div class="flash-phase">
+        <div class="flash-result">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </div>
+        <h3 class="flash-phase__title" style="text-align:center">Flash erased</h3>
+        <p class="flash-phase__note">The device is blank. Install firmware to bring it back online.</p>
+        <div class="flash-foot">
+          <button class="btn btn--ghost" data-done>Close</button>
+          <button class="btn btn--primary" data-install>Install firmware</button>
+        </div>
+      </div>
+    `;
+    el.flashModalBody.querySelector("[data-done]")?.addEventListener("click", closeFlashModal);
+    el.flashModalBody.querySelector("[data-install]")?.addEventListener("click", beginFlash);
+  } else {
+    setFlowBadge("Error", "error");
+    finishProgress("error", "Erase failed");
+    setStatus({ state: "error", primary: "Erase failed" });
+    appendLine(`Erase error: ${message || "unknown"}`, "error");
+    toast("Erase failed", "error");
+    renderError(kind || "erase", message);
   }
 }
 

@@ -195,6 +195,75 @@ export async function flashFirmware({ port, manifestPath, eraseFirst = false, on
   emit({ phase: "finished", message: "Installation complete" });
 }
 
+/**
+ * Fully erase the chip's flash (NVS, config, app — everything). Used to reset a
+ * device to factory state, e.g. to clear stale WiFi credentials so the gateway
+ * boots back onto the default commissioning network.
+ * @param {object} opts
+ * @param {SerialPort} opts.port - already-selected serial port (NOT opened)
+ * @param {(e:object)=>void} opts.onEvent - phase callback
+ */
+export async function eraseChip({ port, onEvent }) {
+  const emit = (e) => onEvent && onEvent(e);
+
+  emit({ phase: "init", message: "Loading flasher…" });
+
+  let Transport, ESPLoader;
+  try {
+    ({ Transport, ESPLoader } = await loadEsptool());
+  } catch (err) {
+    emit({
+      phase: "error",
+      kind: "module",
+      message: `Could not load the flashing engine (esptool-js): ${errText(err)}`,
+      error: err,
+    });
+    return;
+  }
+
+  emit({ phase: "init", message: "Connecting to device…" });
+
+  const transport = new Transport(port, false);
+  const esploader = new ESPLoader({
+    transport,
+    baudrate: 115200,
+    romBaudrate: 115200,
+    enableTracing: false,
+  });
+  window.__esploader = esploader;
+
+  try {
+    await esploader.main();
+    await esploader.flashId();
+    emit({ phase: "init", message: `Connected · ${esploader.chip.CHIP_NAME}`, done: true, chip: esploader.chip.CHIP_NAME });
+  } catch (err) {
+    await safeReset(transport, esploader);
+    await safeDisconnect(transport);
+    emit({
+      phase: "error",
+      kind: "init",
+      message: `Couldn't connect: ${errText(err)}. Hold BOOT, tap RST, release, then retry.`,
+      error: err,
+    });
+    return;
+  }
+
+  emit({ phase: "erasing", message: "Erasing entire flash…" });
+  try {
+    await esploader.eraseFlash();
+  } catch (err) {
+    await safeReset(transport, esploader);
+    await safeDisconnect(transport);
+    emit({ phase: "error", kind: "erase", message: errText(err), error: err });
+    return;
+  }
+
+  await safeReset(transport, esploader);
+  await safeDisconnect(transport);
+
+  emit({ phase: "finished", message: "Flash erased" });
+}
+
 /* ---------- helpers ---------- */
 function errText(err) {
   if (!err) return "unknown error";
