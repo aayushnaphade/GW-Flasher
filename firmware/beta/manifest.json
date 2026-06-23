@@ -1,6 +1,6 @@
 {
   "name": "GW-2E3F-2026 Firmware (Beta)",
-  "version": "beta-30",
+  "version": "beta-32",
   "builds": [{
     "chipFamily": "ESP32-S3",
     "parts": [
