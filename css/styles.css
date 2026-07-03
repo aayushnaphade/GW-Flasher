@@ -658,6 +658,7 @@ kbd {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   background: var(--bg);
 }
 .console[data-collapsed="true"] .console__empty,

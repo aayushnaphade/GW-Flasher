@@ -1,0 +1,3 @@
+{"level":"info","message":"Conexión a PostgreSQL establecida","service":"supabase-mcp-server","timestamp":"2026-07-03T10:09:33.076Z"}
+{"level":"info","message":"Servidor MCP de Supabase iniciado","service":"supabase-mcp-server","timestamp":"2026-07-03T10:09:33.084Z"}
+{"level":"info","message":"Solicitando lista de herramientas","service":"supabase-mcp-server","timestamp":"2026-07-03T10:09:33.115Z"}
