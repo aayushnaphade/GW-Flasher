@@ -15,6 +15,14 @@
       "path": "firmware/beta",
       "badge": "beta",
       "is_default": false
+    },
+    {
+      "id": "fota",
+      "name": "FOTA",
+      "description": "OTA development builds (fota branch) — may be unstable",
+      "path": "firmware/fota",
+      "badge": "fota",
+      "is_default": false
     }
   ]
 }

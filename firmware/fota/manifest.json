@@ -1,0 +1,12 @@
+{
+  "name": "GW-2E3F-2026 Firmware (FOTA)",
+  "version": "pending",
+  "builds": [{
+    "chipFamily": "ESP32-S3",
+    "parts": [
+      { "offset": "0x0", "path": "bootloader.bin" },
+      { "offset": "0x8000", "path": "partition-table.bin" },
+      { "offset": "0x10000", "path": "firmware.bin" }
+    ]
+  }]
+}

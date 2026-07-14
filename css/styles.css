@@ -1262,6 +1262,7 @@ kbd {
 }
 .channel-badge--stable { color: var(--success, #4ade80); }
 .channel-badge--beta { color: var(--warning, #fbbf24); }
+.channel-badge--fota { color: var(--info, #60a5fa); }
 .channel-detail {
   font-size: 0.65rem;
   color: var(--text-muted, rgba(255,255,255,0.5));

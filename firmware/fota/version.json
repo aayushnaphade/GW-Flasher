@@ -1,0 +1,10 @@
+{
+  "version": "pending",
+  "build_date": "",
+  "target": "ESP32-S3",
+  "git_commit": "",
+  "git_branch": "fota",
+  "build_number": "0",
+  "is_release": false,
+  "channel": "fota"
+}
