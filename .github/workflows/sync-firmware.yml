@@ -36,6 +36,7 @@ jobs:
           FIRMWARE_URL: ${{ github.event.client_payload.firmware_url }}
           BOOTLOADER_URL: ${{ github.event.client_payload.bootloader_url }}
           PARTITION_TABLE_URL: ${{ github.event.client_payload.partition_table_url }}
+          OTA_DATA_URL: ${{ github.event.client_payload.ota_data_url }}
           MANIFEST_URL: ${{ github.event.client_payload.manifest_url }}
           VERSION_URL: ${{ github.event.client_payload.version_url }}
           STORAGE_URL: ${{ github.event.client_payload.storage_url }}
@@ -51,6 +52,9 @@ jobs:
           curl -fsSL "$FIRMWARE_URL" -o "$TARGET_DIR/firmware.bin"
           curl -fsSL "$BOOTLOADER_URL" -o "$TARGET_DIR/bootloader.bin"
           curl -fsSL "$PARTITION_TABLE_URL" -o "$TARGET_DIR/partition-table.bin"
+          if [ -n "${OTA_DATA_URL:-}" ]; then
+            curl -fsSL "$OTA_DATA_URL" -o "$TARGET_DIR/ota_data_initial.bin"
+          fi
           curl -fsSL "$MANIFEST_URL" -o "$TARGET_DIR/manifest.json"
           curl -fsSL "$VERSION_URL" -o "$TARGET_DIR/version.json"
           # Storage (LittleFS web UI) is optional — only present in builds with the portal
@@ -60,6 +64,9 @@ jobs:
           test -s "$TARGET_DIR/firmware.bin"
           test -s "$TARGET_DIR/bootloader.bin"
           test -s "$TARGET_DIR/partition-table.bin"
+          if jq -e '.builds[].parts[] | select(.path == "ota_data_initial.bin")' "$TARGET_DIR/manifest.json" >/dev/null; then
+            test -s "$TARGET_DIR/ota_data_initial.bin"
+          fi
           test -s "$TARGET_DIR/manifest.json"
           test -s "$TARGET_DIR/version.json"
 

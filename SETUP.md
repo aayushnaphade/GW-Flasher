@@ -28,8 +28,10 @@ Option A — repository_dispatch flow (artifacts hosted publicly)
   - `firmware_url`
   - `bootloader_url`
   - `partition_table_url`
+  - `ota_data_url`
   - `manifest_url`
   - `version_url`
+  - `storage_url`
 
 Example (uses `jq`):
 
@@ -40,10 +42,12 @@ Example (uses `jq`):
     FIRMWARE_URL: https://example.com/path/firmware.bin
     BOOTLOADER_URL: https://example.com/path/bootloader.bin
     PARTITION_URL: https://example.com/path/partition-table.bin
+    OTA_DATA_URL: https://example.com/path/ota_data_initial.bin
     MANIFEST_URL: https://example.com/path/manifest.json
     VERSION_URL: https://example.com/path/version.json
+    STORAGE_URL: https://example.com/path/storage.bin
   run: |
-    PAYLOAD=$(jq -n --arg f "$FIRMWARE_URL" --arg b "$BOOTLOADER_URL" --arg p "$PARTITION_URL" --arg m "$MANIFEST_URL" --arg v "$VERSION_URL" '{firmware_url:$f,bootloader_url:$b,partition_table_url:$p,manifest_url:$m,version_url:$v}')
+    PAYLOAD=$(jq -n --arg f "$FIRMWARE_URL" --arg b "$BOOTLOADER_URL" --arg p "$PARTITION_URL" --arg o "$OTA_DATA_URL" --arg m "$MANIFEST_URL" --arg v "$VERSION_URL" --arg s "$STORAGE_URL" '{firmware_url:$f,bootloader_url:$b,partition_table_url:$p,ota_data_url:$o,manifest_url:$m,version_url:$v,storage_url:$s}')
     curl -sSf -X POST \
       -H "Accept: application/vnd.github+json" \
       -H "Authorization: Bearer ${{ secrets.PUBLIC_REPO_TOKEN }}" \
@@ -77,8 +81,10 @@ Option B — direct push from CI (current setup)
     cp -f build/firmware.bin public_repo/firmware/firmware.bin || true
     cp -f build/bootloader.bin public_repo/firmware/bootloader.bin || true
     cp -f build/partition-table.bin public_repo/firmware/partition-table.bin || true
+    cp -f build/ota_data_initial.bin public_repo/firmware/ota_data_initial.bin || true
+    cp -f assets/storage.bin public_repo/firmware/storage.bin || true
     cat > public_repo/firmware/manifest.json <<'JSON'
-{ "builds": [{ "chipFamily": "ESP32-S3", "parts": [ { "offset": "0x0", "path": "bootloader.bin" }, { "offset": "0x8000", "path": "partition-table.bin" }, { "offset": "0x10000", "path": "firmware.bin" } ] } ] }
+{ "builds": [{ "chipFamily": "ESP32-S3", "parts": [ { "offset": "0x0", "path": "bootloader.bin" }, { "offset": "0x8000", "path": "partition-table.bin" }, { "offset": "0xf000", "path": "ota_data_initial.bin" }, { "offset": "0x20000", "path": "firmware.bin" }, { "offset": "0x620000", "path": "storage.bin" } ] } ] }
 JSON
     cat > public_repo/firmware/version.json <<'JSON'
 {
