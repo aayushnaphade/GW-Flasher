@@ -20,10 +20,6 @@
         {
           "offset": "0x20000",
           "path": "firmware.bin"
-        },
-        {
-          "offset": "0x620000",
-          "path": "storage.bin"
         }
       ]
     }

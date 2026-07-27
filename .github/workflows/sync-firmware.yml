@@ -39,7 +39,6 @@ jobs:
           OTA_DATA_URL: ${{ github.event.client_payload.ota_data_url }}
           MANIFEST_URL: ${{ github.event.client_payload.manifest_url }}
           VERSION_URL: ${{ github.event.client_payload.version_url }}
-          STORAGE_URL: ${{ github.event.client_payload.storage_url }}
           TARGET_DIR: ${{ steps.channel.outputs.dir }}
         run: |
           set -euo pipefail
@@ -57,10 +56,6 @@ jobs:
           fi
           curl -fsSL "$MANIFEST_URL" -o "$TARGET_DIR/manifest.json"
           curl -fsSL "$VERSION_URL" -o "$TARGET_DIR/version.json"
-          # Storage (LittleFS web UI) is optional — only present in builds with the portal
-          if [ -n "${STORAGE_URL:-}" ]; then
-            curl -fsSL "$STORAGE_URL" -o "$TARGET_DIR/storage.bin" || true
-          fi
           test -s "$TARGET_DIR/firmware.bin"
           test -s "$TARGET_DIR/bootloader.bin"
           test -s "$TARGET_DIR/partition-table.bin"
