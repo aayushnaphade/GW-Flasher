@@ -1,6 +1,6 @@
 {
   "name": "GW-2E3F-2026 Firmware",
-  "version": "4.1.0",
+  "version": "dev-49",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
