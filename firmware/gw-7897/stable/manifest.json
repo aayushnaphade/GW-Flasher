@@ -1,12 +1,12 @@
 {
   "name": "Gateway GW-7897 (EC200U)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "offset": "0x1000",
+          "offset": "0x0",
           "path": "bootloader.bin"
         },
         {
