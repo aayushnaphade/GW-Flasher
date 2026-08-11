@@ -8,7 +8,7 @@
       content="Engineering workbench for flashing, provisioning, and debugging ESP32-S3 gateways from the browser."
     />
     <meta name="color-scheme" content="dark light" />
-    <title>GW Flasher — ESP32-S3 Workbench</title>
+    <title>Seetech Flasher — ESP32-S3 Workbench</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -39,7 +39,7 @@
           </svg>
         </div>
         <div class="brand-text">
-          <span class="brand-title">GW Flasher</span>
+          <span class="brand-title">Seetech Flasher</span>
           <span class="brand-sub">ESP32-S3 Workbench</span>
         </div>
       </div>
@@ -130,6 +130,9 @@
                 <span class="flow__state" aria-hidden="true"></span>
               </li>
             </ol>
+
+            <!-- Firmware product selector (gateway / dckv variant) -->
+            <div class="channel-selector" data-product-selector></div>
 
             <!-- Firmware channel selector (stable / beta) -->
             <div class="channel-selector" data-channel-selector></div>

@@ -569,7 +569,53 @@ $$("[data-copy]").forEach((btn) => {
    Firmware Channel Selection (stable / beta)
    ============================================================ */
 let activeChannel = localStorage.getItem("gw-flasher-channel") || "stable";
-let channelBasePath = "firmware"; // updated by loadChannels()
+let activeProduct = localStorage.getItem("gw-flasher-product") || "";
+let channelBasePath = "firmware"; // updated by loadProducts/loadChannels()
+
+async function loadProducts() {
+  try {
+    const res = await fetch("firmware/products.json", { cache: "no-store" });
+    if (!res.ok) return;
+    const { products } = await res.json();
+    if (!Array.isArray(products) || products.length === 0) return;
+
+    // Auto-select first product if none saved or saved product no longer exists
+    const saved = products.find((p) => p.id === activeProduct);
+    if (!saved) {
+      activeProduct = products[0].id;
+      localStorage.setItem("gw-flasher-product", activeProduct);
+    }
+
+    // Build channelBasePath based on product + channel
+    channelBasePath = `firmware/${activeProduct}/${activeChannel}`;
+
+    // Render product selector
+    const selector = document.querySelector("[data-product-selector]");
+    if (selector) {
+      selector.innerHTML = products
+        .map(
+          (p) =>
+            `<button data-product="${p.id}" class="channel-btn ${p.id === activeProduct ? "active" : ""}" title="${p.description}">
+              <span class="channel-badge channel-badge--${p.category}">${p.name}</span>
+              <span class="channel-detail">${p.modem}</span>
+            </button>`
+        )
+        .join("");
+
+      selector.querySelectorAll("[data-product]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.product;
+          if (id === activeProduct) return;
+          localStorage.setItem("gw-flasher-product", id);
+          location.reload();
+        });
+      });
+    }
+  } catch {
+    // products.json missing — fall back to legacy single-firmware path
+    channelBasePath = `firmware/${activeChannel === "stable" ? "" : activeChannel}`.replace(/\/$/, "") || "firmware";
+  }
+}
 
 async function loadChannels() {
   try {
@@ -1190,7 +1236,7 @@ checkCompat();
 setFlow("connect", "reset");
 setFlowBadge("Ready");
 wireInstall();
-loadChannels().then(() => loadVersion());
+loadProducts().then(() => loadChannels()).then(() => loadVersion());
 initAutoUpdate();
 
 if (!("serial" in navigator)) {
