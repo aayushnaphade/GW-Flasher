@@ -1,6 +1,6 @@
 {
   "name": "Gateway GW-7897 (EC200U)",
-  "version": "dev-3",
+  "version": "1.0.0",
   "builds": [
     {
       "chipFamily": "ESP32-S3",
