@@ -3,22 +3,28 @@
     {
       "id": "gw-2e3f",
       "name": "Gateway GW-2E3F",
-      "description": "Modbus→MQTT Gateway (SIMCom A7670C)",
+      "description": "Modbus\u2192MQTT Gateway (SIMCom A7670C)",
       "modem": "SIMCom A7670C",
       "category": "gateway",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"],
+      "channels": [
+        "stable",
+        "beta"
+      ],
       "available": true
     },
     {
       "id": "gw-7897",
       "name": "Gateway GW-7897",
-      "description": "Modbus→MQTT Gateway (Quectel EC200U)",
+      "description": "Modbus\u2192MQTT Gateway (Quectel EC200U)",
       "modem": "Quectel EC200U-CN",
       "category": "gateway",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"],
-      "available": false
+      "channels": [
+        "stable",
+        "beta"
+      ],
+      "available": true
     },
     {
       "id": "dckv-ec200u",
@@ -27,7 +33,10 @@
       "modem": "Quectel EC200U-CN",
       "category": "dckv",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"],
+      "channels": [
+        "stable",
+        "beta"
+      ],
       "available": false
     },
     {
@@ -37,7 +46,10 @@
       "modem": "SIMCom A7670C",
       "category": "dckv",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"],
+      "channels": [
+        "stable",
+        "beta"
+      ],
       "available": false
     }
   ]
