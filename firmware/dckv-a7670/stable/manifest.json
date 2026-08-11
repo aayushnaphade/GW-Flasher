@@ -1,0 +1,27 @@
+{
+  "name": "DCKV Controller (A7670)",
+  "version": "1.0.0",
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "offset": "0x0",
+          "path": "bootloader.bin"
+        },
+        {
+          "offset": "0x8000",
+          "path": "partition-table.bin"
+        },
+        {
+          "offset": "0xf000",
+          "path": "ota_data_initial.bin"
+        },
+        {
+          "offset": "0x20000",
+          "path": "firmware.bin"
+        }
+      ]
+    }
+  ]
+}

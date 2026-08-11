@@ -50,7 +50,7 @@
         "stable",
         "beta"
       ],
-      "available": false
+      "available": true
     }
   ]
 }
