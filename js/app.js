@@ -579,27 +579,42 @@ async function loadProducts() {
     const { products } = await res.json();
     if (!Array.isArray(products) || products.length === 0) return;
 
-    // Auto-select first product if none saved or saved product no longer exists
+    // Auto-select a product with a published build. Falls back to the first
+    // entry so the UI still renders if nothing has been built yet.
     const saved = products.find((p) => p.id === activeProduct);
     if (!saved) {
-      activeProduct = products[0].id;
+      const firstAvailable = products.find((p) => p.available !== false);
+      activeProduct = (firstAvailable || products[0]).id;
       localStorage.setItem("gw-flasher-product", activeProduct);
     }
 
+    const selected = products.find((p) => p.id === activeProduct);
+    const selectedAvailable = selected?.available !== false;
+
     // Build channelBasePath based on product + channel
     channelBasePath = `firmware/${activeProduct}/${activeChannel}`;
+
+    // A product with no published build has no manifest to fetch — block
+    // flashing rather than letting the technician hit a 404 mid-flow.
+    if (!selectedAvailable) {
+      if (el.installButton) el.installButton.disabled = true;
+      if (el.installNote) {
+        el.installNote.textContent = `No build published yet for ${selected?.name || activeProduct}. Tag a release in its firmware repo to publish one.`;
+      }
+      setFlowBadge("No build");
+    }
 
     // Render product selector
     const selector = document.querySelector("[data-product-selector]");
     if (selector) {
       selector.innerHTML = products
-        .map(
-          (p) =>
-            `<button data-product="${p.id}" class="channel-btn ${p.id === activeProduct ? "active" : ""}" title="${p.description}">
+        .map((p) => {
+          const unavailable = p.available === false;
+          return `<button data-product="${p.id}" class="channel-btn ${p.id === activeProduct ? "active" : ""}" ${unavailable ? 'data-unavailable="true"' : ""} title="${unavailable ? `${p.description} — no build published yet` : p.description}">
               <span class="channel-badge channel-badge--${p.category}">${p.name}</span>
-              <span class="channel-detail">${p.modem}</span>
-            </button>`
-        )
+              <span class="channel-detail">${unavailable ? "No build yet" : p.modem}</span>
+            </button>`;
+        })
         .join("");
 
       selector.querySelectorAll("[data-product]").forEach((btn) => {

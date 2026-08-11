@@ -7,7 +7,8 @@
       "modem": "SIMCom A7670C",
       "category": "gateway",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"]
+      "channels": ["stable", "beta"],
+      "available": true
     },
     {
       "id": "gw-7897",
@@ -16,7 +17,8 @@
       "modem": "Quectel EC200U-CN",
       "category": "gateway",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"]
+      "channels": ["stable", "beta"],
+      "available": false
     },
     {
       "id": "dckv-ec200u",
@@ -25,7 +27,8 @@
       "modem": "Quectel EC200U-CN",
       "category": "dckv",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"]
+      "channels": ["stable", "beta"],
+      "available": false
     },
     {
       "id": "dckv-a7670",
@@ -34,7 +37,8 @@
       "modem": "SIMCom A7670C",
       "category": "dckv",
       "chip": "ESP32-S3",
-      "channels": ["stable", "beta"]
+      "channels": ["stable", "beta"],
+      "available": false
     }
   ]
 }
