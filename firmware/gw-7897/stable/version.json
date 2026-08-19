@@ -1,10 +1,10 @@
 {
-  "version": "1.0.1",
-  "build_date": "2026-08-11T20:22:38Z",
+  "version": "dev-6",
+  "build_date": "2026-08-19T14:35:48Z",
   "target": "ESP32-S3",
-  "git_commit": "d9d5b5c4cb87c2df8bd5e0b41d5e688ffb981fdf",
-  "git_branch": "v1.0.1",
-  "build_number": "5",
-  "is_release": true,
+  "git_commit": "e603ae9b8cf0918417c4cf04afd9087276cf595b",
+  "git_branch": "main",
+  "build_number": "6",
+  "is_release": false,
   "channel": "stable"
 }
